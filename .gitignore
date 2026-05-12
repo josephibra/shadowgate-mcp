@@ -16,3 +16,4 @@ shadowgate_server_registry.json
 shadowgate_mcp.egg-info/
 build/
 dist/
+ai_context/
