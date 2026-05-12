@@ -1,0 +1,12 @@
+{
+  "mode": "strict",
+  "block_score_at": 80,
+  "redact_score_at": 30,
+  "always_block_categories": [
+    "file_access",
+    "injection",
+    "secrets"
+  ],
+  "always_redact": true,
+  "audit_enabled": true
+}

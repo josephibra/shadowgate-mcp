@@ -1,0 +1,14 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+audit_logs
+*.tar.gz
+*.zip
+.git
+.env
+.env.*
+.DS_Store
+shadowgate_server_registry.json

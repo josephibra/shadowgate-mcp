@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shadowgate-mcp"
+version = "0.3.8"
+description = "ShadowGate MCP: security gateway and firewall for MCP tool calls, responses, schemas, manifests, and server trust registry."
+requires-python = ">=3.11"
+dependencies = [
+  "mcp[cli]",
+]
+
+[project.scripts]
+shadowgate = "shadowgate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["shadowgate*"]
+exclude = ["audit_logs*", "tests*", "scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

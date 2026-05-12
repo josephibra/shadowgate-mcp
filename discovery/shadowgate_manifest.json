@@ -1,0 +1,80 @@
+{
+  "name": "ShadowGate MCP",
+  "slug": "shadowgate-mcp",
+  "version": "0.3.8-public-surface",
+  "description": "Defensive MCP security gateway for scanning MCP tool calls, responses, schemas, manifests, prompt injection, leaked secrets, risky commands, and untrusted MCP servers.",
+  "category": "security",
+  "transport": {
+    "type": "streamable-http",
+    "path": "/mcp",
+    "local_url": "http://127.0.0.1:8000/mcp",
+    "production_url_placeholder": "https://YOUR_DOMAIN_OR_RAILWAY_URL/mcp"
+  },
+  "auth": {
+    "client_key": {
+      "env_var": "SHADOWGATE_CLIENT_KEY",
+      "required_for": "scan and gateway tools when enabled"
+    },
+    "admin_key": {
+      "env_var": "SHADOWGATE_ADMIN_KEY",
+      "required_for": "policy, registry, audit, and report admin tools when enabled"
+    }
+  },
+  "main_tools": [
+    "analyze_text",
+    "scan_text",
+    "gate_mcp_tool_call",
+    "gate_mcp_response",
+    "evaluate_mcp_transaction",
+    "inspect_mcp_tool_call",
+    "inspect_mcp_response",
+    "inspect_tool_schema",
+    "review_mcp_manifest",
+    "scan_batch",
+    "get_mcp_server_trust",
+    "set_mcp_server_trust",
+    "create_security_report"
+  ],
+  "use_cases": [
+    "Shadow IT MCP server control",
+    "Prompt injection filtering",
+    "Secret/path leakage detection",
+    "Risky command detection",
+    "MCP server trust registry",
+    "Agent tool-call firewall",
+    "Security audit reporting"
+  ],
+  "deployment": {
+    "env": {
+      "SHADOWGATE_HOST": "0.0.0.0",
+      "PORT": "8000",
+      "SHADOWGATE_DATA_DIR": "/data",
+      "SHADOWGATE_CLIENT_KEY": "change-me-client-key",
+      "SHADOWGATE_ADMIN_KEY": "change-me-admin-key"
+    }
+  },
+  "recommended_public_tools": [
+    "health_check",
+    "analyze_text",
+    "gate_mcp_tool_call",
+    "gate_mcp_response",
+    "evaluate_mcp_transaction",
+    "review_mcp_manifest",
+    "get_mcp_server_trust",
+    "set_mcp_server_trust",
+    "get_server_registry",
+    "create_security_report",
+    "get_security_config"
+  ],
+  "compatibility_tools": [
+    "scan_text",
+    "redact_secrets",
+    "get_risk_score",
+    "decide_policy",
+    "simulate_policy_modes",
+    "inspect_mcp_tool_call",
+    "inspect_mcp_response",
+    "inspect_tool_schema",
+    "scan_batch"
+  ]
+}
