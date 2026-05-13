@@ -205,6 +205,23 @@ For Railway/Fly/Render, use:
 SHADOWGATE_HOST=0.0.0.0
 PORT=<platform provided port>
 
+## Production deployment checklist
+
+For hosted/public deployment:
+
+- Set SHADOWGATE_ADMIN_KEY to a strong non-placeholder value.
+- Set SHADOWGATE_CLIENT_KEY to a strong non-placeholder value.
+- Set SHADOWGATE_DATA_DIR=/data or another persistent mounted path.
+- Use a persistent volume if the platform supports it.
+- Set SHADOWGATE_AUDIT_MAX_EVENTS and SHADOWGATE_AUDIT_RETENTION_DAYS.
+- Set SHADOWGATE_RATE_LIMIT_PER_MINUTE and SHADOWGATE_RATE_LIMIT_BURST for host-level rate-limit policy.
+- Do not commit audit logs or data directory contents.
+- Monitor create_security_report periodically.
+- Rotate keys if they are exposed.
+- Keep the MCP endpoint private or protected.
+
+health_check and get_security_config include production warnings without exposing raw keys.
+
 
 ## Professional public tool surface
 

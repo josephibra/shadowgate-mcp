@@ -1382,6 +1382,7 @@ def _security_report_sections(
         "server_trust_overview": server_trust_overview,
         "manifest_identity_overview": manifest_identity_overview,
         "capability_risk_overview": capability_risk_overview,
+        "production_hardening": _get_security_config(),
         "recommendations": _security_report_recommendations(
             risk_overview=risk_overview,
             server_trust_overview=server_trust_overview,

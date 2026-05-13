@@ -28,6 +28,22 @@ SHADOWGATE_CLIENT_KEY
 SHADOWGATE_ADMIN_KEY
 SHADOWGATE_DATA_DIR
 SHADOWGATE_HOST=0.0.0.0
+SHADOWGATE_AUDIT_MAX_EVENTS
+SHADOWGATE_AUDIT_RETENTION_DAYS
+SHADOWGATE_RATE_LIMIT_PER_MINUTE
+SHADOWGATE_RATE_LIMIT_BURST
+
+## Production hardening checklist
+
+- Set SHADOWGATE_ADMIN_KEY to a strong non-placeholder value.
+- Set SHADOWGATE_CLIENT_KEY to a strong non-placeholder value.
+- Set SHADOWGATE_DATA_DIR=/data or another persistent mounted path.
+- Use a persistent volume if the platform supports it.
+- Do not commit audit logs or local data directory files.
+- Monitor create_security_report.
+- Rotate keys if they are exposed.
+- Keep the MCP endpoint private or protected.
+- Review health_check or get_security_config production_warnings after deploy.
 
 ## Auth model
 

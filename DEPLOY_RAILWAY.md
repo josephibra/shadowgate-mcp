@@ -6,8 +6,16 @@ SHADOWGATE_HOST=0.0.0.0
 SHADOWGATE_DATA_DIR=/data
 SHADOWGATE_ADMIN_KEY=change-this-admin-key
 SHADOWGATE_CLIENT_KEY=change-this-client-key
+SHADOWGATE_AUDIT_MAX_EVENTS=10000
+SHADOWGATE_AUDIT_RETENTION_DAYS=30
+SHADOWGATE_RATE_LIMIT_PER_MINUTE=120
+SHADOWGATE_RATE_LIMIT_BURST=20
 
 Railway provides PORT automatically.
+
+Use strong non-placeholder admin and client keys before exposing the endpoint.
+If Railway persistent volumes are available, mount one at /data so policy,
+registry, and audit files survive deploys.
 
 ## Start command
 
@@ -41,6 +49,15 @@ If SHADOWGATE_CLIENT_KEY is set, pass client_key to scan/gateway tools.
 
 If SHADOWGATE_ADMIN_KEY is set, pass admin_key to admin tools.
 
+## Production hardening
+
+- Keep SHADOWGATE_ADMIN_KEY and SHADOWGATE_CLIENT_KEY private.
+- Rotate keys if they are exposed.
+- Set SHADOWGATE_DATA_DIR=/data and use persistent storage.
+- Do not commit audit logs.
+- Keep the MCP endpoint private or protected where possible.
+- Call create_security_report periodically.
+- Check health_check or get_security_config for production_warnings.
 
 ## Recommended public tools
 

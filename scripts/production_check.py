@@ -83,6 +83,12 @@ def main() -> None:
     security = get_security_config()
     print("admin_auth_enabled:", security.get("admin_auth_enabled"))
     print("client_auth_enabled:", security.get("client_auth_enabled"))
+    if "production_warnings" not in security:
+        fail("security config missing production_warnings")
+    if "audit_retention" not in security:
+        fail("security config missing audit_retention")
+    if "rate_limit" not in security:
+        fail("security config missing rate_limit")
 
     paths = get_data_paths()
     print("data_dir:", paths.get("data_dir"))
@@ -115,9 +121,53 @@ def main() -> None:
         "SHADOWGATE_DATA_DIR",
         "SHADOWGATE_ADMIN_KEY",
         "SHADOWGATE_CLIENT_KEY",
+        "SHADOWGATE_AUDIT_MAX_EVENTS",
+        "SHADOWGATE_AUDIT_RETENTION_DAYS",
+        "SHADOWGATE_RATE_LIMIT_PER_MINUTE",
+        "SHADOWGATE_RATE_LIMIT_BURST",
     ]:
         if key not in env_example:
             fail(f".env.example missing {key}")
+
+    original_env = {
+        key: os.environ.get(key)
+        for key in [
+            "SHADOWGATE_HOST",
+            "PORT",
+            "SHADOWGATE_ADMIN_KEY",
+            "SHADOWGATE_CLIENT_KEY",
+            "SHADOWGATE_DATA_DIR",
+        ]
+    }
+    try:
+        os.environ["SHADOWGATE_HOST"] = "0.0.0.0"
+        os.environ["PORT"] = "8000"
+        os.environ.pop("SHADOWGATE_ADMIN_KEY", None)
+        os.environ.pop("SHADOWGATE_CLIENT_KEY", None)
+        os.environ.pop("SHADOWGATE_DATA_DIR", None)
+        hosted_security = get_security_config()
+        warning_codes = {
+            item.get("code")
+            for item in hosted_security.get("production_warnings", [])
+        }
+        if "hosted_admin_key_missing" not in warning_codes:
+            fail("hosted-mode warning missing admin key recommendation")
+        if "hosted_client_key_missing" not in warning_codes:
+            fail("hosted-mode warning missing client key recommendation")
+
+        os.environ["SHADOWGATE_ADMIN_KEY"] = "production-check-admin-key"
+        os.environ["SHADOWGATE_CLIENT_KEY"] = "production-check-client-key"
+        rendered = json.dumps(get_security_config(), sort_keys=True)
+        if "production-check-admin-key" in rendered:
+            fail("security config exposes raw admin key")
+        if "production-check-client-key" in rendered:
+            fail("security config exposes raw client key")
+    finally:
+        for key, value in original_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
     print("PRODUCTION CHECK PASSED")
 
