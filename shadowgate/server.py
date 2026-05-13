@@ -4,7 +4,9 @@ import hashlib
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp.server.fastmcp import FastMCP
 
@@ -22,6 +24,29 @@ TRUST_IDENTITY_VERSION = "1"
 SERVER_HOST = os.environ.get("SHADOWGATE_HOST", os.environ.get("HOST", "127.0.0.1"))
 SERVER_PORT = int(os.environ.get("SHADOWGATE_PORT", os.environ.get("PORT", "8000")))
 
+
+# ---------------------------------------------------------------------------
+# MCP parameter metadata
+# ---------------------------------------------------------------------------
+# These aliases preserve the public Python/API behavior while giving MCP
+# clients and Smithery better input schema descriptions.
+
+TextParam = Annotated[str, Field(description="Text payload to scan for leaked secrets, prompt injection, risky commands, or sensitive file paths.")]
+TextsJsonParam = Annotated[str, Field(description="JSON array of text payloads to scan in a batch.")]
+SourceParam = Annotated[str, Field(description="Optional source label used in audit metadata, for example manual, mcp_response, or gateway.")]
+ClientKeyParam = Annotated[str, Field(description="Client key required for protected scan/gateway tools when SHADOWGATE_CLIENT_KEY is configured.")]
+AdminKeyParam = Annotated[str, Field(description="Admin key required for protected administrative tools when SHADOWGATE_ADMIN_KEY is configured.")]
+ServerNameParam = Annotated[str, Field(description="Name of the external MCP server or agent being inspected, gated, trusted, or reviewed.")]
+ToolNameParam = Annotated[str, Field(description="Name of the MCP tool being inspected, gated, or reviewed.")]
+ArgumentsJsonParam = Annotated[str, Field(description="JSON string containing the outgoing MCP tool arguments to inspect before execution.")]
+ResponseTextParam = Annotated[str, Field(description="Text returned by an external MCP server/tool before the agent trusts or consumes it.")]
+SchemaJsonParam = Annotated[str, Field(description="JSON string containing an MCP tool schema or input schema to inspect for risky capabilities.")]
+ManifestJsonParam = Annotated[str, Field(description="JSON string containing an MCP server manifest to review before onboarding or trusting the server.")]
+TrustLevelParam = Annotated[str, Field(description="Trust level for an MCP server. Expected values are trusted, monitor, untrusted, or blocked.")]
+ReasonParam = Annotated[str, Field(description="Human-readable reason for a trust, policy, approval, or registry change.")]
+PolicyModeParam = Annotated[str, Field(description="Policy mode to apply. Expected values are monitor, balanced, or strict.")]
+LimitParam = Annotated[int, Field(description="Maximum number of audit, registry, or result records to return.")]
+
 mcp = FastMCP("ShadowGate MCP", json_response=True, host=SERVER_HOST, port=SERVER_PORT)
 
 
@@ -36,7 +61,7 @@ def _safe_json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
-def _manifest_sha256(manifest_json: str) -> str:
+def _manifest_sha256(manifest_json: ManifestJsonParam) -> str:
     return hashlib.sha256(manifest_json.encode("utf-8")).hexdigest()
 
 
@@ -72,7 +97,7 @@ def _capability_summary(
 
 def _trust_identity(
     *,
-    server_name: str,
+    server_name: ServerNameParam,
     manifest_sha256: str,
     tool_names: list[str],
     capability_summary: dict[str, Any],
@@ -95,7 +120,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _registry_trust_identity(server_name: str) -> tuple[bool, dict[str, Any] | None]:
+def _registry_trust_identity(server_name: ServerNameParam) -> tuple[bool, dict[str, Any] | None]:
     registry = get_registry()
     servers = registry.get("servers", {})
 
@@ -131,7 +156,7 @@ def _list_value(value: Any) -> list[str]:
 
 def _manifest_drift(
     *,
-    server_name: str,
+    server_name: ServerNameParam,
     trust_identity: dict[str, Any],
     include_previous_details: bool,
 ) -> dict[str, Any]:
@@ -208,7 +233,7 @@ def _manifest_drift(
 
 def _manifest_identity_from_parsed(
     *,
-    server_name: str,
+    server_name: ServerNameParam,
     manifest_sha256: str,
     parsed: Any,
 ) -> dict[str, Any]:
@@ -259,7 +284,7 @@ def _risk_level(score: int) -> str:
     return "none"
 
 
-def _looks_like_risky_tool_name(tool_name: str) -> bool:
+def _looks_like_risky_tool_name(tool_name: ToolNameParam) -> bool:
     risky_words = [
         "run",
         "exec",
@@ -329,7 +354,7 @@ def _add_manual_finding(
 def _apply_capability_assessment(
     result: dict[str, Any],
     *,
-    tool_name: str,
+    tool_name: ToolNameParam,
     payload: str,
     add_findings: bool = True,
 ) -> dict[str, Any]:
@@ -431,7 +456,7 @@ def _finalize(action: str, result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _scan_tool_call(server_name: str, tool_name: str, arguments_json: str) -> dict[str, Any]:
+def _scan_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam, arguments_json: ArgumentsJsonParam) -> dict[str, Any]:
     result = scan(arguments_json)
     result["source"] = {
         "server_name": server_name,
@@ -473,7 +498,7 @@ def _scan_tool_call(server_name: str, tool_name: str, arguments_json: str) -> di
 
 
 
-def _apply_server_trust(result: dict[str, Any], server_name: str) -> dict[str, Any]:
+def _apply_server_trust(result: dict[str, Any], server_name: ServerNameParam) -> dict[str, Any]:
     trust = get_server_trust(server_name)
     result["server_trust"] = trust
 
@@ -646,7 +671,7 @@ def health_check() -> dict[str, Any]:
 
 
 @mcp.tool()
-def scan_text(text: str, client_key: str = "") -> dict[str, Any]:
+def scan_text(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan arbitrary text for leaked secrets, prompt injection, risky commands, and sensitive file paths."""
     auth = require_client_key(client_key)
 
@@ -661,7 +686,7 @@ def scan_text(text: str, client_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def analyze_text(text: str, client_key: str = "") -> dict[str, Any]:
+def analyze_text(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """
     Professional public text-analysis tool.
 
@@ -702,7 +727,7 @@ def analyze_text(text: str, client_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def redact_secrets(text: str, client_key: str = "") -> dict[str, Any]:
+def redact_secrets(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return the text with detected secrets and sensitive path snippets redacted."""
     auth = require_client_key(client_key)
 
@@ -716,7 +741,7 @@ def redact_secrets(text: str, client_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_risk_score(text: str, client_key: str = "") -> dict[str, Any]:
+def get_risk_score(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return a 0-100 risk score for a text payload."""
     auth = require_client_key(client_key)
 
@@ -730,7 +755,7 @@ def get_risk_score(text: str, client_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def decide_policy(text: str, strict: bool = True, client_key: str = "") -> dict[str, Any]:
+def decide_policy(text: TextParam, strict: bool = True, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return the policy decision for a payload: allow, redact, or block."""
     auth = require_client_key(client_key)
 
@@ -744,7 +769,7 @@ def decide_policy(text: str, strict: bool = True, client_key: str = "") -> dict[
     return result
 
 @mcp.tool()
-def inspect_mcp_response(server_name: str, tool_name: str, response_text: str, client_key: str = "") -> dict[str, Any]:
+def inspect_mcp_response(server_name: ServerNameParam, tool_name: ToolNameParam, response_text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan a response returned by another MCP server before the agent trusts it."""
     auth = require_client_key(client_key)
 
@@ -760,7 +785,7 @@ def inspect_mcp_response(server_name: str, tool_name: str, response_text: str, c
     return result
 
 @mcp.tool()
-def inspect_mcp_tool_call(server_name: str, tool_name: str, arguments_json: str, client_key: str = "") -> dict[str, Any]:
+def inspect_mcp_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam, arguments_json: ArgumentsJsonParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan an outgoing MCP tool call before execution."""
     auth = require_client_key(client_key)
 
@@ -776,7 +801,7 @@ def inspect_mcp_tool_call(server_name: str, tool_name: str, arguments_json: str,
     return result
 
 @mcp.tool()
-def gate_mcp_tool_call(server_name: str, tool_name: str, arguments_json: str, client_key: str = "") -> dict[str, Any]:
+def gate_mcp_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam, arguments_json: ArgumentsJsonParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Gateway decision for an outgoing MCP tool call."""
     auth = require_client_key(client_key)
 
@@ -799,7 +824,7 @@ def gate_mcp_tool_call(server_name: str, tool_name: str, arguments_json: str, cl
 
 
 @mcp.tool()
-def gate_mcp_response(server_name: str, tool_name: str, response_text: str, client_key: str = "") -> dict[str, Any]:
+def gate_mcp_response(server_name: ServerNameParam, tool_name: ToolNameParam, response_text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Gateway decision for an MCP response."""
     auth = require_client_key(client_key)
 
@@ -823,11 +848,11 @@ def gate_mcp_response(server_name: str, tool_name: str, response_text: str, clie
 
 @mcp.tool()
 def evaluate_mcp_transaction(
-    server_name: str,
-    tool_name: str,
-    arguments_json: str,
-    response_text: str,
-    client_key: str = "",
+    server_name: ServerNameParam,
+    tool_name: ToolNameParam,
+    arguments_json: ArgumentsJsonParam,
+    response_text: TextParam,
+    client_key: ClientKeyParam = "",
 ) -> dict[str, Any]:
     """
     Evaluate both sides of an MCP interaction:
@@ -876,7 +901,7 @@ def evaluate_mcp_transaction(
 
 
 @mcp.tool()
-def inspect_tool_schema(server_name: str, tool_name: str, schema_json: str, client_key: str = "") -> dict[str, Any]:
+def inspect_tool_schema(server_name: ServerNameParam, tool_name: ToolNameParam, schema_json: SchemaJsonParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan an MCP tool schema/description before allowing agents to use it."""
     auth = require_client_key(client_key)
 
@@ -926,10 +951,10 @@ def inspect_tool_schema(server_name: str, tool_name: str, schema_json: str, clie
 
 @mcp.tool()
 def review_mcp_manifest(
-    server_name: str,
-    manifest_json: str,
-    client_key: str = "",
-    admin_key: str = "",
+    server_name: ServerNameParam,
+    manifest_json: ManifestJsonParam,
+    client_key: ClientKeyParam = "",
+    admin_key: AdminKeyParam = "",
 ) -> dict[str, Any]:
     """
     Review a simplified MCP server manifest.
@@ -1081,7 +1106,7 @@ def review_mcp_manifest(
 
 
 @mcp.tool()
-def scan_batch(items: list[str], client_key: str = "") -> dict[str, Any]:
+def scan_batch(items: list[str], client_key: ClientKeyParam = "") -> dict[str, Any]:
     """
     Scan multiple text items in one call.
 
@@ -1128,7 +1153,7 @@ def scan_batch(items: list[str], client_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def simulate_policy_modes(text: str, client_key: str = "") -> dict[str, Any]:
+def simulate_policy_modes(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Show how the same text would be handled under monitor, balanced, and strict modes."""
     auth = require_client_key(client_key)
 
@@ -1158,7 +1183,7 @@ def get_policy() -> dict[str, Any]:
 
 
 @mcp.tool()
-def set_policy_mode(mode: str, admin_key: str = "") -> dict[str, Any]:
+def set_policy_mode(mode: PolicyModeParam, admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Change ShadowGate policy mode: monitor, balanced, or strict."""
     auth = require_admin_key(admin_key)
     if not auth.get("ok"):
@@ -1169,7 +1194,7 @@ def set_policy_mode(mode: str, admin_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_recent_audit_events(limit: int = 20, admin_key: str = "") -> dict[str, Any]:
+def get_recent_audit_events(limit: LimitParam = 20, admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Return recent ShadowGate audit events. Raw scanned text is never stored."""
     auth = require_admin_key(admin_key)
     if not auth.get("ok"):
@@ -1178,7 +1203,7 @@ def get_recent_audit_events(limit: int = 20, admin_key: str = "") -> dict[str, A
 
 
 @mcp.tool()
-def get_audit_summary(admin_key: str = "") -> dict[str, Any]:
+def get_audit_summary(admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Return a summary of ShadowGate audit decisions, actions, categories, and severities."""
     auth = require_admin_key(admin_key)
     if not auth.get("ok"):
@@ -1479,7 +1504,7 @@ def _security_report_markdown(report_sections: dict[str, Any]) -> str:
 
 
 @mcp.tool()
-def create_security_report(limit: int = 50, admin_key: str = "") -> dict[str, Any]:
+def create_security_report(limit: LimitParam = 50, admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Create a compact security report from recent audit events."""
     auth = require_admin_key(admin_key)
     if not auth.get("ok"):
@@ -1517,7 +1542,7 @@ def create_security_report(limit: int = 50, admin_key: str = "") -> dict[str, An
 
 
 @mcp.tool()
-def get_server_registry(admin_key: str = "") -> dict[str, Any]:
+def get_server_registry(admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Return the ShadowGate MCP server trust registry."""
     auth = require_admin_key(admin_key)
     if not auth.get("ok"):
@@ -1528,13 +1553,13 @@ def get_server_registry(admin_key: str = "") -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_mcp_server_trust(server_name: str) -> dict[str, Any]:
+def get_mcp_server_trust(server_name: ServerNameParam) -> dict[str, Any]:
     """Return trust status for a specific MCP server."""
     return get_server_trust(server_name)
 
 
 @mcp.tool()
-def set_mcp_server_trust(server_name: str, trust_level: str, reason: str = "", admin_key: str = "") -> dict[str, Any]:
+def set_mcp_server_trust(server_name: ServerNameParam, trust_level: str, reason: ReasonParam = "", admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """
     Set trust level for an MCP server.
 
@@ -1554,11 +1579,11 @@ def set_mcp_server_trust(server_name: str, trust_level: str, reason: str = "", a
 
 @mcp.tool()
 def approve_mcp_manifest_identity(
-    server_name: str,
-    manifest_json: str,
-    trust_level: str = "trusted",
-    reason: str = "",
-    admin_key: str = "",
+    server_name: ServerNameParam,
+    manifest_json: ManifestJsonParam,
+    trust_level: TrustLevelParam = "trusted",
+    reason: ReasonParam = "",
+    admin_key: AdminKeyParam = "",
 ) -> dict[str, Any]:
     """Admin tool to approve and persist a manifest trust identity baseline."""
     auth = require_admin_key(admin_key)
