@@ -8,6 +8,7 @@
     "type": "streamable-http",
     "path": "/mcp",
     "local_url": "http://127.0.0.1:8000/mcp",
+    "production_url": "https://web-production-62b0d.up.railway.app/mcp",
     "production_url_placeholder": "https://YOUR_DOMAIN_OR_RAILWAY_URL/mcp"
   },
   "auth": {

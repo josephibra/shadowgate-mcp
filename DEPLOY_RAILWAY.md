@@ -1,5 +1,14 @@
 # Deploy ShadowGate MCP to Railway
 
+## Hosted Demo Status
+
+| Item | Value |
+|---|---|
+| Railway deployment | live |
+| MCP endpoint | https://web-production-62b0d.up.railway.app/mcp |
+| Auth | client_key / admin_key required for protected tools |
+| health_check | public |
+
 ## Required environment variables
 
 SHADOWGATE_HOST=0.0.0.0
@@ -23,14 +32,17 @@ python -m shadowgate.server
 
 ## MCP endpoint
 
-After deployment, replace the placeholder below with your actual Railway URL:
+Live demo endpoint (Railway):
 
+```
+https://web-production-62b0d.up.railway.app/mcp
+```
+
+For your own deployment, replace with your Railway app URL:
+
+```
 https://YOUR-RAILWAY-APP.up.railway.app/mcp
-
-TODO: After first Railway deploy, update with the real URL:
-- discovery/shadowgate_manifest.json → transport.production_url_placeholder
-- smithery.yaml → repository field and any endpoint references
-- README.md if you add a hosted demo link
+```
 
 ## Test locally before deploy
 
@@ -43,9 +55,11 @@ python scripts/validate_discovery.py
 
 Open the hosted MCP URL in an MCP-compatible client:
 
-https://YOUR-RAILWAY-APP.up.railway.app/mcp
+```
+https://web-production-62b0d.up.railway.app/mcp
+```
 
-Then call:
+Or your own deployment URL. Then call:
 
 health_check
 scan_text

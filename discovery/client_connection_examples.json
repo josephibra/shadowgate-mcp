@@ -4,9 +4,16 @@
       "name": "ShadowGate MCP",
       "transport": "streamable-http",
       "url_local": "http://127.0.0.1:8000/mcp",
+      "url_hosted_live": "https://web-production-62b0d.up.railway.app/mcp",
       "url_hosted_placeholder": "https://YOUR_DOMAIN/mcp",
       "local_mcp_endpoint": "http://127.0.0.1:8000/mcp",
-      "hosted_mcp_endpoint": "https://YOUR_DOMAIN/mcp"
+      "hosted_mcp_endpoint": "https://web-production-62b0d.up.railway.app/mcp"
+    },
+    "demo_deployment": {
+      "status": "live",
+      "platform": "Railway",
+      "mcp_endpoint": "https://web-production-62b0d.up.railway.app/mcp",
+      "auth_note": "client_key required for scan/gateway tools, admin_key required for admin tools, health_check is public"
     },
     "auth_parameters": {
       "client_key": "Pass this to normal scan and gateway tools when SHADOWGATE_CLIENT_KEY is configured.",

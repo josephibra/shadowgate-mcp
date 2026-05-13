@@ -288,10 +288,13 @@ def test_smithery_yaml_has_no_real_secrets():
 
 # ── Task 11: placeholder URL clearly marked ───────────────────────────────────
 
-def test_deploy_railway_has_todo_marker():
+def test_deploy_railway_has_placeholder_and_status():
     text = Path("DEPLOY_RAILWAY.md").read_text(encoding="utf-8")
-    assert "TODO" in text
+    # Keep placeholder for users deploying their own instance
     assert "YOUR-RAILWAY-APP" in text
+    # Deployment guide should document auth keys
+    assert "SHADOWGATE_ADMIN_KEY" in text
+    assert "SHADOWGATE_CLIENT_KEY" in text
 
 
 # ── Task 12: PAYMENT_XPAY.md exists and has no real secrets ──────────────────

@@ -8,7 +8,17 @@ http://127.0.0.1:8000/mcp
 
 ## Hosted Endpoint
 
+Live demo (Railway):
+
+```
+https://web-production-62b0d.up.railway.app/mcp
+```
+
+Your own deployment:
+
+```
 https://YOUR_DOMAIN/mcp
+```
 
 ## Auth Parameters
 
@@ -28,7 +38,9 @@ Transport: Streamable HTTP
 
 Local URL: http://127.0.0.1:8000/mcp
 
-Hosted URL: https://YOUR_DOMAIN/mcp
+Hosted demo URL: https://web-production-62b0d.up.railway.app/mcp
+
+Custom deployment URL: https://YOUR_DOMAIN/mcp
 
 ## Safe Example Payloads
 

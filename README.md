@@ -30,6 +30,21 @@ Possible decisions:
 - redact
 - block
 
+## Hosted Demo
+
+Live Railway deployment:
+
+```
+https://web-production-62b0d.up.railway.app/mcp
+```
+
+- Railway deployment: live
+- Version: 0.4.0-hardened
+- Auth: `client_key` required for scan/gateway tools, `admin_key` required for admin tools
+- `health_check` is public — call it to verify server status
+
+See `docs/HOSTED_DEMO.md` for connection details and tool list.
+
 ## Quickstart
 
 ```bash
@@ -195,6 +210,7 @@ python examples/agent_to_agent_demo.py
 
 ## Docs
 
+- docs/HOSTED_DEMO.md
 - docs/CONNECT.md
 - docs/CLIENT_CONFIGS.md
 - docs/AGENT_USAGE.md

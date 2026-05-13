@@ -27,6 +27,7 @@ REQUIRED_FILES = [
     "discovery/shadowgate_manifest.json",
     "discovery/client_connection_examples.json",
     "discovery/agent_routing_policy.json",
+    "docs/HOSTED_DEMO.md",
     "docs/CONNECT.md",
     "docs/CLIENT_CONFIGS.md",
     "docs/AGENT_USAGE.md",
