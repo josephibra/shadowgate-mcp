@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from typing import Any
@@ -15,6 +16,7 @@ from .scanner import policy_decision, redact, risk_score, scan, scan_mcp_respons
 from .storage import get_data_paths as _get_data_paths
 
 VERSION = "0.3.8-public-surface"
+TRUST_IDENTITY_VERSION = "1"
 
 SERVER_HOST = os.environ.get("SHADOWGATE_HOST", os.environ.get("HOST", "127.0.0.1"))
 SERVER_PORT = int(os.environ.get("SHADOWGATE_PORT", os.environ.get("PORT", "8000")))
@@ -31,6 +33,61 @@ def _safe_json_loads(value: str) -> tuple[bool, Any]:
 
 def _safe_json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _manifest_sha256(manifest_json: str) -> str:
+    return hashlib.sha256(manifest_json.encode("utf-8")).hexdigest()
+
+
+def _capability_summary(
+    reviewed_tools: list[dict[str, Any]],
+) -> dict[str, Any]:
+    capability_ids: set[str] = set()
+    highest_capability_risk_score = 0
+    requires_human_approval = False
+
+    for tool in reviewed_tools:
+        assessment = tool.get("capability_assessment", {})
+        highest_capability_risk_score = max(
+            highest_capability_risk_score,
+            int(assessment.get("risk_score", 0)),
+        )
+        requires_human_approval = requires_human_approval or bool(
+            assessment.get("requires_human_approval")
+        )
+        for capability in assessment.get("capabilities", []):
+            capability_id = capability.get("id")
+            if capability_id:
+                capability_ids.add(str(capability_id))
+
+    return {
+        "highest_capability_risk_score": highest_capability_risk_score,
+        "risk_level": _risk_level(highest_capability_risk_score),
+        "capability_count": len(capability_ids),
+        "capability_ids": sorted(capability_ids),
+        "requires_human_approval": requires_human_approval,
+    }
+
+
+def _trust_identity(
+    *,
+    server_name: str,
+    manifest_sha256: str,
+    tool_names: list[str],
+    capability_summary: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "server_name": server_name,
+        "manifest_sha256": manifest_sha256,
+        "tool_count": len(tool_names),
+        "tool_names": tool_names,
+        "highest_capability_risk_score": capability_summary.get(
+            "highest_capability_risk_score",
+            0,
+        ),
+        "capability_ids": capability_summary.get("capability_ids", []),
+        "identity_version": TRUST_IDENTITY_VERSION,
+    }
 
 
 def _risk_level(score: int) -> str:
@@ -721,6 +778,7 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
     if not auth.get("ok"):
         return _client_auth_error_response(auth, "review_mcp_manifest")
 
+    manifest_hash = _manifest_sha256(manifest_json)
     ok, parsed = _safe_json_loads(manifest_json)
 
     if not ok:
@@ -739,16 +797,27 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
         result["client_auth"] = auth
 
         final = _finalize("review_mcp_manifest", result)
+        capability_summary = _capability_summary([])
+        trust_identity = _trust_identity(
+            server_name=server_name,
+            manifest_sha256=manifest_hash,
+            tool_names=[],
+            capability_summary=capability_summary,
+        )
 
         return {
             "auth": auth,
             "server_name": server_name,
             "valid_json": False,
+            "manifest_sha256": manifest_hash,
             "overall_decision": final.get("decision"),
             "highest_risk_score": final.get("risk_score"),
             "risk_level": final.get("risk_level"),
             "requires_human_approval": final.get("gateway", {}).get("requires_human_approval"),
             "tool_count": 0,
+            "tool_names": [],
+            "capability_summary": capability_summary,
+            "trust_identity": trust_identity,
             "tools": [],
             "manifest_scan": final,
         }
@@ -806,15 +875,28 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
     else:
         overall = "allow"
 
+    tool_names = [str(tool.get("tool_name", "unknown_tool")) for tool in reviewed_tools]
+    capability_summary = _capability_summary(reviewed_tools)
+    trust_identity = _trust_identity(
+        server_name=server_name,
+        manifest_sha256=manifest_hash,
+        tool_names=tool_names,
+        capability_summary=capability_summary,
+    )
+
     return {
         "auth": auth,
         "server_name": server_name,
         "valid_json": True,
+        "manifest_sha256": manifest_hash,
         "overall_decision": overall,
         "highest_risk_score": highest,
         "risk_level": _risk_level(highest),
         "requires_human_approval": needs_approval,
         "tool_count": len(reviewed_tools),
+        "tool_names": tool_names,
+        "capability_summary": capability_summary,
+        "trust_identity": trust_identity,
         "tools": reviewed_tools,
     }
 
