@@ -26,7 +26,7 @@ CAPABILITY_RULES: list[CapabilityRule] = [
         category="tool_capability",
         weight=95,
         pattern=re.compile(
-            r"\b(run_command|execute_command|shell|terminal|bash|zsh|powershell|cmd\.exe|subprocess|os\.system|exec)\b",
+            r"\b(run_command|execute_command|execute_process|spawn_process|shell|terminal|bash|zsh|powershell|cmd\.exe|subprocess|os\.system|exec)\b|\b(?:spawn|execute|run)\s+(?:a\s+)?(?:local\s+)?(?:process|system command)\b",
             FLAGS,
         ),
     ),
@@ -48,7 +48,7 @@ CAPABILITY_RULES: list[CapabilityRule] = [
         category="tool_capability",
         weight=75,
         pattern=re.compile(
-            r"\b(read_file|readfile|file_read|open_file|download_file|cat\s+|/etc/passwd|\.ssh/id_rsa|\.env)\b",
+            r"\b(read_file|readfile|file_read|open_file|download_file|load_local_document|cat\s+|/etc/passwd|\.ssh/id_rsa|\.env)\b|\b(?:load|read)\s+(?:a\s+)?(?:local\s+)?(?:document|path|file)\b",
             FLAGS,
         ),
     ),
@@ -70,7 +70,7 @@ CAPABILITY_RULES: list[CapabilityRule] = [
         category="tool_capability",
         weight=55,
         pattern=re.compile(
-            r"\b(http_request|web_request|fetch_url|callback_url|webhook|curl|wget|requests\.|post_url)\b",
+            r"\b(http_request|web_request|fetch_url|callback_url|webhook|curl|wget|requests\.|post_url)\b|\bsend\s+(?:the\s+)?result\s+to\s+(?:a\s+)?url\b",
             FLAGS,
         ),
     ),
