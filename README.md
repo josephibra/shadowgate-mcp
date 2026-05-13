@@ -59,6 +59,24 @@ python examples/agent_to_agent_demo.py
 
 The demo uses direct Python calls, not network calls. It shows a safe risky tool call, a blocked dangerous call, a blocked malicious response, manifest review, and a local approval baseline when admin auth is disabled.
 
+## Agent-to-agent gateway usage
+
+ShadowGate sits between agents and external MCP servers so tool calls, responses, and new server manifests are checked before an agent executes or trusts them.
+
+Minimal flow:
+
+1. Connect the MCP host to ShadowGate.
+2. Call gate_mcp_tool_call before executing external MCP tools.
+3. Call gate_mcp_response before trusting external MCP responses.
+4. Call review_mcp_manifest before onboarding a new MCP server.
+5. Admins call approve_mcp_manifest_identity and create_security_report for ongoing review.
+
+See:
+
+- examples/agent_to_agent_demo.py
+- docs/CLIENT_CONFIGS.md
+- docs/AGENT_USAGE.md
+
 ## Server trust registry
 
 Trust levels:

@@ -35,6 +35,30 @@ After connection, the MCP client can list ShadowGate tools.
 3. Agent calls ShadowGate before trusting other MCP tools.
 4. ShadowGate returns allow / allow_with_warning / redact / block.
 
+## Practical Connection Flow
+
+1. Run ShadowGate locally:
+
+python -m shadowgate.server
+
+2. Connect an MCP-compatible client to:
+
+http://127.0.0.1:8000/mcp
+
+3. Call health_check to verify version, policy, tools, and security config.
+
+4. Call analyze_text for general text safety checks.
+
+5. Call gate_mcp_tool_call before an agent executes an external MCP tool.
+
+6. Call gate_mcp_response before an agent trusts an external MCP response.
+
+7. Call review_mcp_manifest before trusting a new MCP server.
+
+8. Call approve_mcp_manifest_identity as an admin to save an approved manifest baseline.
+
+9. Call create_security_report for periodic admin review.
+
 ## Example gateway call
 
 Tool:

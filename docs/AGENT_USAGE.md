@@ -21,17 +21,32 @@ Before an agent executes or trusts risky MCP activity, it should ask ShadowGate.
 
 ## Concise agent-to-agent flow
 
-External tool call:
+### External MCP tool call
 
-Agent wants external tool call -> gate_mcp_tool_call -> execute only if allowed.
+Agent wants to call external server/tool
+-> call gate_mcp_tool_call
+-> if allow_execution=false, do not execute
+-> if gateway_action=allow_with_warning, require human approval or policy-controlled approval
+-> if allowed, execute external tool.
 
-External response:
+### External MCP response
 
-External response -> gate_mcp_response -> trust only if allowed.
+External server returns text
+-> call gate_mcp_response
+-> if deliver_to_agent=false, do not show or trust it
+-> if safe_response_text exists, use that
+-> continue only if allowed.
 
-New MCP server:
+### Full Transaction
 
-New MCP server -> review_mcp_manifest -> approve_mcp_manifest_identity by admin.
+Use evaluate_mcp_transaction when both request and response are available.
+
+### New Server Onboarding
+
+review_mcp_manifest
+-> inspect trust_identity, capability_summary, manifest_drift
+-> admin approves with approve_mcp_manifest_identity
+-> future reviews detect drift.
 
 Local demo:
 
