@@ -14,7 +14,6 @@ COPY scripts ./scripts
 COPY discovery ./discovery
 COPY docs ./docs
 COPY .env.example ./.env.example
-COPY shadowgate_policy.json ./shadowgate_policy.json
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -e .

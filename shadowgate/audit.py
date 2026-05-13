@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .storage import audit_file_path
@@ -18,6 +19,53 @@ def _make_event_id(record: dict[str, Any]) -> str:
     return hashlib.sha256(base.encode("utf-8")).hexdigest()[:16]
 
 
+def _prune_audit_if_needed() -> None:
+    try:
+        max_events = int(os.environ.get("SHADOWGATE_AUDIT_MAX_EVENTS", "0") or "0")
+        retention_days = int(os.environ.get("SHADOWGATE_AUDIT_RETENTION_DAYS", "0") or "0")
+    except ValueError:
+        return
+
+    if max_events <= 0 and retention_days <= 0:
+        return
+
+    audit_file = _audit_file()
+    if not audit_file.exists():
+        return
+
+    lines = audit_file.read_text(encoding="utf-8").splitlines()
+    events: list[dict[str, Any]] = []
+
+    for line in lines:
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    original_count = len(events)
+
+    if retention_days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        kept: list[dict[str, Any]] = []
+        for event in events:
+            try:
+                ts = datetime.fromisoformat(event.get("timestamp", ""))
+                if ts >= cutoff:
+                    kept.append(event)
+            except (ValueError, TypeError):
+                kept.append(event)
+        events = kept
+
+    if max_events > 0 and len(events) > max_events:
+        events = events[-max_events:]
+
+    if len(events) != original_count:
+        content = "\n".join(json.dumps(e, ensure_ascii=False) for e in events)
+        if content:
+            content += "\n"
+        audit_file.write_text(content, encoding="utf-8")
+
+
 def write_audit_event(event: dict[str, Any]) -> dict[str, Any]:
     audit_file = _audit_file()
     audit_file.parent.mkdir(parents=True, exist_ok=True)
@@ -30,6 +78,8 @@ def write_audit_event(event: dict[str, Any]) -> dict[str, Any]:
 
     with audit_file.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    _prune_audit_if_needed()
 
     return {
         "written": True,

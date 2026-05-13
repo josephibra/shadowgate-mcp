@@ -5,6 +5,8 @@ import os
 import secrets
 from typing import Any
 
+from .ratelimit import check_rate_limit
+
 
 ADMIN_KEY_ENV = "SHADOWGATE_ADMIN_KEY"
 CLIENT_KEY_ENV = "SHADOWGATE_CLIENT_KEY"
@@ -244,6 +246,16 @@ def require_client_key(provided_key: str | None = None) -> dict[str, Any]:
             "auth_required": False,
             "auth_type": "client",
             "mode": "dev_no_client_key",
+        }
+
+    rl = check_rate_limit()
+    if not rl["ok"]:
+        return {
+            "ok": False,
+            "auth_required": True,
+            "auth_type": "client",
+            "error": rl.get("error", "Rate limit exceeded."),
+            "rate_limited": True,
         }
 
     provided = (provided_key or "").strip()

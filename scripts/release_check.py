@@ -13,6 +13,10 @@ REQUIRED_FILES = [
     "README.md",
     "DEPLOY_RAILWAY.md",
     "RELEASE_CHECKLIST.md",
+    "SECURITY.md",
+    "LICENSE",
+    "smithery.yaml",
+    ".github/workflows/ci.yml",
     "pyproject.toml",
     "requirements.txt",
     "scripts/smoke_check.py",
@@ -28,6 +32,7 @@ REQUIRED_FILES = [
     "docs/AGENT_USAGE.md",
     "docs/SECURITY_MODEL.md",
     "docs/TOOL_SURFACE.md",
+    "docs/PAYMENT_XPAY.md",
     "RELEASE_NOTES.md",
 ]
 

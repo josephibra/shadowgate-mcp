@@ -23,7 +23,14 @@ python -m shadowgate.server
 
 ## MCP endpoint
 
+After deployment, replace the placeholder below with your actual Railway URL:
+
 https://YOUR-RAILWAY-APP.up.railway.app/mcp
+
+TODO: After first Railway deploy, update with the real URL:
+- discovery/shadowgate_manifest.json → transport.production_url_placeholder
+- smithery.yaml → repository field and any endpoint references
+- README.md if you add a hosted demo link
 
 ## Test locally before deploy
 

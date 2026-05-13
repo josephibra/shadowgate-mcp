@@ -1,0 +1,68 @@
+# ShadowGate MCP — Smithery Registry Configuration
+#
+# TODO: Verify this schema against https://smithery.ai/docs before publishing.
+# The structure below follows the Smithery HTTP MCP server format.
+# Replace placeholder values and validate all fields.
+
+name: shadowgate-mcp
+displayName: ShadowGate MCP
+description: >
+  Defensive security gateway for MCP agents. Scans tool calls, responses,
+  schemas, and server manifests for prompt injection, leaked secrets, risky
+  commands, and untrusted MCP servers. Supports server trust registry,
+  capability assessment, and security audit reporting.
+version: "0.4.0-hardened"
+category: security
+license: MIT
+
+# TODO: Set to your actual GitHub repository URL before publishing.
+repository: https://github.com/YOUR_USERNAME/shadowgate-mcp
+
+build:
+  dockerfile: Dockerfile
+
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    required: []
+    properties:
+      SHADOWGATE_CLIENT_KEY:
+        type: string
+        description: >
+          Client authentication key for scan and gateway tools.
+          Leave empty for development/unauthenticated mode.
+        default: ""
+      SHADOWGATE_ADMIN_KEY:
+        type: string
+        description: >
+          Admin authentication key for policy, registry, and audit tools.
+          Leave empty for development/unauthenticated mode.
+        default: ""
+      SHADOWGATE_DATA_DIR:
+        type: string
+        description: >
+          Persistent data directory for policy, registry, and audit files.
+          Recommended: /data (mount a persistent volume at this path).
+        default: "/data"
+
+# Recommended public tools for Smithery tool listing
+tools:
+  - name: health_check
+    description: Server health, version, active policy, and production warnings.
+  - name: analyze_text
+    description: Primary text safety analysis — scans for injection, secrets, risky commands.
+  - name: gate_mcp_tool_call
+    description: Gateway check for an outgoing MCP tool call before execution.
+  - name: gate_mcp_response
+    description: Gateway check for an MCP response before delivery to the agent.
+  - name: evaluate_mcp_transaction
+    description: Evaluate both sides of an MCP tool call and response together.
+  - name: review_mcp_manifest
+    description: Review a new MCP server manifest for risk and identity baseline.
+  - name: get_mcp_server_trust
+    description: Query the trust level for a known MCP server.
+  - name: create_security_report
+    description: Generate a security report from audit events.
+  - name: get_security_config
+    description: Show current security configuration and production warnings.
