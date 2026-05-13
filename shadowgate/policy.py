@@ -15,10 +15,43 @@ DEFAULT_POLICY = {
     "mode": "strict",
     "block_score_at": 80,
     "redact_score_at": 30,
-    "always_block_categories": ["file_access", "injection", "secrets"],
+    "always_block_categories": ["file_access", "injection", "secret", "secrets"],
     "always_redact": True,
     "audit_enabled": True,
 }
+
+
+
+def _normalize_block_categories(categories: Any) -> list[str]:
+    """
+    Normalize policy category aliases.
+
+    Scanner findings use "secret".
+    Some older policy configs may use "secrets".
+    Keep both aliases so old policy files still behave safely.
+    """
+    if not isinstance(categories, list):
+        categories = DEFAULT_POLICY["always_block_categories"]
+
+    normalized: list[str] = []
+
+    def add(value: str) -> None:
+        clean = value.lower().strip()
+        if clean and clean not in normalized:
+            normalized.append(clean)
+
+    for category in categories:
+        clean = str(category).lower().strip()
+        if clean == "secrets":
+            add("secret")
+            add("secrets")
+        elif clean == "secret":
+            add("secret")
+            add("secrets")
+        else:
+            add(clean)
+
+    return normalized
 
 
 def load_policy() -> dict[str, Any]:
@@ -34,6 +67,10 @@ def load_policy() -> dict[str, Any]:
         if mode not in ALLOWED_MODES:
             merged["mode"] = "strict"
 
+        merged["always_block_categories"] = _normalize_block_categories(
+            merged.get("always_block_categories", [])
+        )
+
         return merged
     except Exception:
         return DEFAULT_POLICY.copy()
@@ -47,6 +84,10 @@ def save_policy(policy: dict[str, Any]) -> dict[str, Any]:
         mode = "strict"
 
     clean["mode"] = mode
+    clean["always_block_categories"] = _normalize_block_categories(
+        clean.get("always_block_categories", [])
+    )
+
     POLICY_FILE.write_text(json.dumps(clean, indent=2), encoding="utf-8")
     return clean
 
@@ -92,7 +133,9 @@ def _apply_policy_object(result: dict[str, Any], policy: dict[str, Any]) -> dict
 
     block_score = int(policy.get("block_score_at", 80))
     redact_score = int(policy.get("redact_score_at", 30))
-    always_block = set(policy.get("always_block_categories", []))
+    always_block = set(
+        _normalize_block_categories(policy.get("always_block_categories", []))
+    )
 
     matched_block_categories = sorted(categories.intersection(always_block))
     score_decision = _score_decision(score, block_score, redact_score)

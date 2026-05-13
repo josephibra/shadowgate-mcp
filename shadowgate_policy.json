@@ -5,6 +5,7 @@
   "always_block_categories": [
     "file_access",
     "injection",
+    "secret",
     "secrets"
   ],
   "always_redact": true,

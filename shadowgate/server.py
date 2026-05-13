@@ -104,7 +104,9 @@ def _add_manual_finding(
     result["severities"] = sorted(severities)
 
     result["finding_count"] = len(result.get("findings", []))
-    result["risk_score"] = min(100, max(int(result.get("risk_score", 0)), weight))
+    existing_score = int(result.get("risk_score", 0))
+    increment = weight if existing_score == 0 else max(1, int(weight * 0.75))
+    result["risk_score"] = min(100, existing_score + increment)
 
     return result
 
