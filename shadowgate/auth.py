@@ -13,6 +13,7 @@ CLIENT_KEY_ENV = "SHADOWGATE_CLIENT_KEY"
 PROTECTED_ADMIN_TOOLS = [
     "set_policy_mode",
     "set_mcp_server_trust",
+    "approve_mcp_manifest_identity",
     "get_server_registry",
     "get_audit_summary",
     "get_recent_audit_events",

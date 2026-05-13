@@ -27,6 +27,7 @@ Core tools:
 - scan_batch
 - get_mcp_server_trust
 - set_mcp_server_trust
+- approve_mcp_manifest_identity
 - create_security_report
 
 Best for:

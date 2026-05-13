@@ -20,6 +20,7 @@ RECOMMENDED_PUBLIC_TOOLS = {
     "review_mcp_manifest",
     "get_mcp_server_trust",
     "set_mcp_server_trust",
+    "approve_mcp_manifest_identity",
     "get_server_registry",
     "create_security_report",
     "get_security_config",

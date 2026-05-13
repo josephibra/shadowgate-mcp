@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -11,7 +12,7 @@ from .audit import read_audit_events, summarize_audit_log, write_audit_event
 from .capabilities import assess_mcp_tool_capabilities
 from .auth import get_security_config as _get_security_config, require_admin_key, require_client_key
 from .policy import apply_policy, load_policy, simulate_policy_modes as simulate_modes, update_policy_mode
-from .registry import get_registry, get_server_trust, set_server_trust
+from .registry import ALLOWED_TRUST_LEVELS, get_registry, get_server_trust, load_registry, save_registry, set_server_trust
 from .scanner import policy_decision, redact, risk_score, scan, scan_mcp_response
 from .storage import get_data_paths as _get_data_paths
 
@@ -87,6 +88,162 @@ def _trust_identity(
         ),
         "capability_ids": capability_summary.get("capability_ids", []),
         "identity_version": TRUST_IDENTITY_VERSION,
+    }
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _registry_trust_identity(server_name: str) -> tuple[bool, dict[str, Any] | None]:
+    registry = get_registry()
+    servers = registry.get("servers", {})
+
+    if not isinstance(servers, dict) or server_name not in servers:
+        return False, None
+
+    entry = servers.get(server_name, {})
+    if not isinstance(entry, dict):
+        return True, None
+
+    identity = entry.get("trust_identity") or entry.get("manifest_identity")
+    if isinstance(identity, dict):
+        return True, identity
+
+    if "manifest_sha256" in entry:
+        return True, entry
+
+    return True, None
+
+
+def _int_value(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _list_value(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def _manifest_drift(
+    *,
+    server_name: str,
+    trust_identity: dict[str, Any],
+    include_previous_details: bool,
+) -> dict[str, Any]:
+    known_server, previous_identity = _registry_trust_identity(server_name)
+
+    current_hash = str(trust_identity.get("manifest_sha256", ""))
+    current_tool_names = _list_value(trust_identity.get("tool_names", []))
+    current_risk = _int_value(
+        trust_identity.get("highest_capability_risk_score"),
+        0,
+    )
+
+    previous_hash = None
+    previous_tool_names: list[str] = []
+    previous_risk = 0
+
+    if previous_identity:
+        previous_hash = previous_identity.get("manifest_sha256")
+        previous_tool_names = _list_value(previous_identity.get("tool_names", []))
+        previous_risk = _int_value(
+            previous_identity.get("highest_capability_risk_score"),
+            0,
+        )
+
+    manifest_changed = bool(previous_hash) and previous_hash != current_hash
+    added_tools = sorted(set(current_tool_names) - set(previous_tool_names))
+    removed_tools = sorted(set(previous_tool_names) - set(current_tool_names))
+    capability_risk_changed = bool(previous_identity) and previous_risk != current_risk
+    risk_increase = current_risk - previous_risk
+
+    if not known_server:
+        recommended_action = "review_before_trust"
+    elif not previous_identity:
+        recommended_action = "approve_manifest_identity_before_drift_detection"
+    elif risk_increase >= 30 or (current_risk >= 85 and current_risk > previous_risk):
+        recommended_action = "block_until_review"
+    elif manifest_changed or capability_risk_changed:
+        recommended_action = "human_review_required"
+    else:
+        recommended_action = "no_action"
+
+    drift = {
+        "known_server": known_server,
+        "baseline_available": bool(previous_identity),
+        "current_manifest_sha256": current_hash,
+        "manifest_changed": manifest_changed,
+        "current_tool_names": current_tool_names,
+        "added_tools": added_tools,
+        "removed_tools": removed_tools,
+        "capability_risk_changed": capability_risk_changed,
+        "current_highest_capability_risk_score": current_risk,
+        "recommended_action": recommended_action,
+        "previous_details_redacted": False,
+    }
+
+    if include_previous_details:
+        drift["previous_manifest_sha256"] = previous_hash
+        drift["previous_tool_names"] = previous_tool_names
+        drift["previous_highest_capability_risk_score"] = previous_risk
+        return drift
+
+    drift["previous_manifest_sha256"] = None
+    drift["previous_tool_names"] = None
+    drift["previous_highest_capability_risk_score"] = None
+    drift["added_tools"] = None
+    drift["removed_tools"] = None
+
+    if previous_identity:
+        drift["previous_details_redacted"] = True
+        drift["redaction_reason"] = "admin_key_required_for_previous_identity_details"
+
+    return drift
+
+
+def _manifest_identity_from_parsed(
+    *,
+    server_name: str,
+    manifest_sha256: str,
+    parsed: Any,
+) -> dict[str, Any]:
+    tools = parsed.get("tools", []) if isinstance(parsed, dict) else []
+    reviewed_tools: list[dict[str, Any]] = []
+
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+
+        name = str(tool.get("name", "unknown_tool"))
+        assessment = assess_mcp_tool_capabilities(
+            tool_name=name,
+            payload=_safe_json_dumps(tool),
+        )
+        reviewed_tools.append(
+            {
+                "tool_name": name,
+                "capability_assessment": assessment,
+            }
+        )
+
+    tool_names = [str(tool.get("tool_name", "unknown_tool")) for tool in reviewed_tools]
+    capability_summary = _capability_summary(reviewed_tools)
+    trust_identity = _trust_identity(
+        server_name=server_name,
+        manifest_sha256=manifest_sha256,
+        tool_names=tool_names,
+        capability_summary=capability_summary,
+    )
+
+    return {
+        "tool_names": tool_names,
+        "capability_summary": capability_summary,
+        "trust_identity": trust_identity,
     }
 
 
@@ -480,6 +637,7 @@ def health_check() -> dict[str, Any]:
             "get_server_registry",
             "get_mcp_server_trust",
             "set_mcp_server_trust",
+            "approve_mcp_manifest_identity",
             "get_data_paths",
             "get_security_config",
         ],
@@ -767,7 +925,12 @@ def inspect_tool_schema(server_name: str, tool_name: str, schema_json: str, clie
 
 
 @mcp.tool()
-def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = "") -> dict[str, Any]:
+def review_mcp_manifest(
+    server_name: str,
+    manifest_json: str,
+    client_key: str = "",
+    admin_key: str = "",
+) -> dict[str, Any]:
     """
     Review a simplified MCP server manifest.
 
@@ -778,6 +941,8 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
     if not auth.get("ok"):
         return _client_auth_error_response(auth, "review_mcp_manifest")
 
+    admin_auth = require_admin_key(admin_key)
+    include_previous_details = bool(admin_auth.get("ok"))
     manifest_hash = _manifest_sha256(manifest_json)
     ok, parsed = _safe_json_loads(manifest_json)
 
@@ -804,12 +969,18 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
             tool_names=[],
             capability_summary=capability_summary,
         )
+        manifest_drift = _manifest_drift(
+            server_name=server_name,
+            trust_identity=trust_identity,
+            include_previous_details=include_previous_details,
+        )
 
         return {
             "auth": auth,
             "server_name": server_name,
             "valid_json": False,
             "manifest_sha256": manifest_hash,
+            "admin_auth": admin_auth,
             "overall_decision": final.get("decision"),
             "highest_risk_score": final.get("risk_score"),
             "risk_level": final.get("risk_level"),
@@ -818,6 +989,7 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
             "tool_names": [],
             "capability_summary": capability_summary,
             "trust_identity": trust_identity,
+            "manifest_drift": manifest_drift,
             "tools": [],
             "manifest_scan": final,
         }
@@ -883,12 +1055,18 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
         tool_names=tool_names,
         capability_summary=capability_summary,
     )
+    manifest_drift = _manifest_drift(
+        server_name=server_name,
+        trust_identity=trust_identity,
+        include_previous_details=include_previous_details,
+    )
 
     return {
         "auth": auth,
         "server_name": server_name,
         "valid_json": True,
         "manifest_sha256": manifest_hash,
+        "admin_auth": admin_auth,
         "overall_decision": overall,
         "highest_risk_score": highest,
         "risk_level": _risk_level(highest),
@@ -897,6 +1075,7 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
         "tool_names": tool_names,
         "capability_summary": capability_summary,
         "trust_identity": trust_identity,
+        "manifest_drift": manifest_drift,
         "tools": reviewed_tools,
     }
 
@@ -1107,6 +1286,93 @@ def set_mcp_server_trust(server_name: str, trust_level: str, reason: str = "", a
     result = set_server_trust(server_name, trust_level, reason)
     result["auth"] = auth
     return result
+
+
+@mcp.tool()
+def approve_mcp_manifest_identity(
+    server_name: str,
+    manifest_json: str,
+    trust_level: str = "trusted",
+    reason: str = "",
+    admin_key: str = "",
+) -> dict[str, Any]:
+    """Admin tool to approve and persist a manifest trust identity baseline."""
+    auth = require_admin_key(admin_key)
+    if not auth.get("ok"):
+        return {"updated": False, "auth": auth}
+
+    clean_level = trust_level.lower().strip()
+    if clean_level not in ALLOWED_TRUST_LEVELS:
+        return {
+            "updated": False,
+            "error": f"Invalid trust level: {trust_level}",
+            "allowed_trust_levels": sorted(ALLOWED_TRUST_LEVELS),
+            "auth": auth,
+        }
+
+    ok, parsed = _safe_json_loads(manifest_json)
+    if not ok:
+        return {
+            "updated": False,
+            "server_name": server_name,
+            "trust_level": clean_level,
+            "error": "Invalid manifest JSON.",
+            "parse_error": parsed.get("parse_error"),
+            "auth": auth,
+        }
+
+    manifest_hash = _manifest_sha256(manifest_json)
+    identity_parts = _manifest_identity_from_parsed(
+        server_name=server_name,
+        manifest_sha256=manifest_hash,
+        parsed=parsed,
+    )
+    trust_identity = identity_parts["trust_identity"]
+    capability_summary = identity_parts["capability_summary"]
+
+    registry = load_registry()
+    servers = registry.setdefault("servers", {})
+    existing = servers.get(server_name, {})
+    if not isinstance(existing, dict):
+        existing = {}
+
+    entry = {
+        **existing,
+        "trust_level": clean_level,
+        "reason": reason,
+        "updated_at": _now(),
+        "trust_identity": trust_identity,
+        "manifest_sha256": trust_identity["manifest_sha256"],
+        "tool_names": trust_identity["tool_names"],
+        "tool_count": trust_identity["tool_count"],
+        "highest_capability_risk_score": trust_identity[
+            "highest_capability_risk_score"
+        ],
+        "capability_ids": trust_identity["capability_ids"],
+    }
+    servers[server_name] = entry
+    save_registry(registry)
+
+    return {
+        "updated": True,
+        "server_name": server_name,
+        "trust_level": clean_level,
+        "trust_identity": trust_identity,
+        "capability_summary": capability_summary,
+        "registry_entry": {
+            "trust_level": entry["trust_level"],
+            "reason": entry.get("reason", ""),
+            "updated_at": entry.get("updated_at"),
+            "manifest_sha256": entry["manifest_sha256"],
+            "tool_names": entry["tool_names"],
+            "tool_count": entry["tool_count"],
+            "highest_capability_risk_score": entry[
+                "highest_capability_risk_score"
+            ],
+            "capability_ids": entry["capability_ids"],
+        },
+        "auth": auth,
+    }
 
 
 @mcp.tool()

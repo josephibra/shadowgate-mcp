@@ -59,6 +59,10 @@ Change ShadowGate policy mode.
 
 Set a server as trusted, untrusted, monitor, or blocked.
 
+### approve_mcp_manifest_identity
+
+Approve and persist a reviewed MCP manifest identity baseline for drift detection.
+
 ### get_server_registry
 
 Read the MCP server trust registry.

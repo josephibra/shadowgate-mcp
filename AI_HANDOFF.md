@@ -82,6 +82,10 @@ Read trust status for an MCP server.
 
 Admin tool to set an MCP server as trusted, untrusted, monitor, or blocked.
 
+### approve_mcp_manifest_identity
+
+Admin tool to approve and persist a reviewed MCP manifest identity baseline for drift detection.
+
 ### get_server_registry
 
 Admin tool to inspect the MCP server trust registry.
@@ -252,6 +256,7 @@ Preserve the public MCP surface:
 - review_mcp_manifest
 - get_mcp_server_trust
 - set_mcp_server_trust
+- approve_mcp_manifest_identity
 - get_server_registry
 - create_security_report
 - get_security_config

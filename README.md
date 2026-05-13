@@ -90,6 +90,7 @@ make smoke
 - get_server_registry
 - get_mcp_server_trust
 - set_mcp_server_trust
+- approve_mcp_manifest_identity
 
 ## Production direction
 
@@ -190,6 +191,7 @@ Recommended public tools for agents:
 - review_mcp_manifest
 - get_mcp_server_trust
 - set_mcp_server_trust
+- approve_mcp_manifest_identity
 - get_server_registry
 - create_security_report
 - get_security_config
@@ -208,6 +210,7 @@ ShadowGate has a clean recommended public tool surface for agents:
 - review_mcp_manifest
 - get_mcp_server_trust
 - set_mcp_server_trust
+- approve_mcp_manifest_identity
 - get_server_registry
 - create_security_report
 - get_security_config
