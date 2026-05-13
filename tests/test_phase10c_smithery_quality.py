@@ -57,3 +57,13 @@ def test_smithery_yaml_has_no_real_secret_values():
 
     for marker in forbidden:
         assert marker not in text
+
+
+def test_remaining_smithery_parameter_aliases_are_present():
+    source = Path("shadowgate/server.py").read_text(encoding="utf-8")
+
+    assert "StrictParam = Annotated" in source
+    assert "BatchItemsParam = Annotated" in source
+    assert "strict: StrictParam" in source
+    assert "items: BatchItemsParam" in source
+    assert "trust_level: TrustLevelParam" in source

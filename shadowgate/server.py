@@ -46,6 +46,8 @@ ManifestJsonParam = Annotated[str, Field(description="JSON string containing an 
 TrustLevelParam = Annotated[str, Field(description="Trust level for an MCP server. Expected values are trusted, monitor, untrusted, or blocked.")]
 ReasonParam = Annotated[str, Field(description="Human-readable reason for a trust, policy, approval, or registry change.")]
 PolicyModeParam = Annotated[str, Field(description="Policy mode to apply. Expected values are monitor, balanced, or strict.")]
+StrictParam = Annotated[bool, Field(description="Whether to evaluate using strict policy thresholds.")]
+BatchItemsParam = Annotated[list, Field(description="List of text payloads or item objects to scan in one batch.")]
 LimitParam = Annotated[int, Field(description="Maximum number of audit, registry, or result records to return.")]
 
 mcp = FastMCP("ShadowGate MCP", json_response=True, host=SERVER_HOST, port=SERVER_PORT)
@@ -814,7 +816,7 @@ def get_risk_score(text: TextParam, client_key: ClientKeyParam = "") -> dict[str
 
 
 @mcp.tool(annotations=ANN_POLICY)
-def decide_policy(text: TextParam, strict: bool = True, client_key: ClientKeyParam = "") -> dict[str, Any]:
+def decide_policy(text: TextParam, strict: StrictParam = True, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return the policy decision for a payload: allow, redact, or block."""
     auth = require_client_key(client_key)
 
@@ -1165,7 +1167,7 @@ def review_mcp_manifest(
 
 
 @mcp.tool(annotations=ANN_BATCH)
-def scan_batch(items: list[str], client_key: ClientKeyParam = "") -> dict[str, Any]:
+def scan_batch(items: BatchItemsParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """
     Scan multiple text items in one call.
 
@@ -1618,7 +1620,7 @@ def get_mcp_server_trust(server_name: ServerNameParam) -> dict[str, Any]:
 
 
 @mcp.tool(annotations=ANN_ADMIN_WRITE)
-def set_mcp_server_trust(server_name: ServerNameParam, trust_level: str, reason: ReasonParam = "", admin_key: AdminKeyParam = "") -> dict[str, Any]:
+def set_mcp_server_trust(server_name: ServerNameParam, trust_level: TrustLevelParam, reason: ReasonParam = "", admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """
     Set trust level for an MCP server.
 
