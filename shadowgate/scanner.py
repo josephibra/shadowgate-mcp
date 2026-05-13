@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .patterns import ALL_RULES, Rule
+from .normalizer import expand_text_variants
 
 
 @dataclass
@@ -50,20 +51,43 @@ def scan(text: str) -> dict[str, Any]:
     text = text or ""
     findings: list[Finding] = []
 
-    for rule in ALL_RULES:
-        for match in rule.pattern.finditer(text):
-            findings.append(
-                Finding(
-                    rule_id=rule.id,
-                    label=rule.label,
-                    severity=rule.severity,
-                    category=rule.category,
-                    weight=rule.weight,
-                    start=match.start(),
-                    end=match.end(),
-                    preview=_preview(text, match.start(), match.end()),
+    variants = expand_text_variants(text)
+    transformed_variant_hit_names: set[str] = set()
+
+    for variant in variants:
+        before_count = len(findings)
+
+        for rule in ALL_RULES:
+            for match in rule.pattern.finditer(variant.text):
+                findings.append(
+                    Finding(
+                        rule_id=rule.id,
+                        label=rule.label,
+                        severity=rule.severity,
+                        category=rule.category,
+                        weight=rule.weight,
+                        start=match.start(),
+                        end=match.end(),
+                        preview=_preview(variant.text, match.start(), match.end()),
+                    )
                 )
+
+        if variant.name != "original" and len(findings) > before_count:
+            transformed_variant_hit_names.add(variant.name)
+
+    if transformed_variant_hit_names:
+        findings.append(
+            Finding(
+                rule_id="normalized_or_decoded_payload_match",
+                label="Risk matched after normalization or decoding",
+                severity="high",
+                category="injection",
+                weight=50,
+                start=0,
+                end=0,
+                preview=", ".join(sorted(transformed_variant_hit_names))[:96],
             )
+        )
 
     findings = _dedupe_findings(findings)
     raw_score = sum(f.weight for f in findings)
