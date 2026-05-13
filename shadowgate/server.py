@@ -9,6 +9,7 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 from .audit import read_audit_events, summarize_audit_log, write_audit_event
 from .capabilities import assess_mcp_tool_capabilities
@@ -623,7 +624,65 @@ def _client_auth_error_response(auth: dict[str, Any], kind: str) -> dict[str, An
     }
 
 
-@mcp.tool()
+
+# ---------------------------------------------------------------------------
+# MCP tool annotations for Smithery/MCP clients
+# ---------------------------------------------------------------------------
+# Tool names remain unchanged for API compatibility. These annotations provide
+# safer client UX: which tools are read-only, which require human review, and
+# which tools mutate ShadowGate configuration/registry state.
+
+def _tool_annotations(
+    *,
+    title: str,
+    read_only: bool = True,
+    destructive: bool = False,
+    idempotent: bool = True,
+    open_world: bool = False,
+) -> ToolAnnotations:
+    return ToolAnnotations(
+        title=title,
+        readOnlyHint=read_only,
+        destructiveHint=destructive,
+        idempotentHint=idempotent,
+        openWorldHint=open_world,
+    )
+
+
+ANN_HEALTH = _tool_annotations(title="Health Check")
+ANN_SCAN = _tool_annotations(title="Security Text Scan")
+ANN_REDACT = _tool_annotations(title="Secret Redaction")
+ANN_RISK = _tool_annotations(title="Risk Score")
+ANN_POLICY = _tool_annotations(title="Policy Decision")
+ANN_RESPONSE = _tool_annotations(title="Inspect MCP Response", open_world=True)
+ANN_TOOL_CALL = _tool_annotations(title="Inspect MCP Tool Call", open_world=True)
+ANN_GATE_CALL = _tool_annotations(title="Gate MCP Tool Call", open_world=True)
+ANN_GATE_RESPONSE = _tool_annotations(title="Gate MCP Response", open_world=True)
+ANN_TRANSACTION = _tool_annotations(title="Evaluate MCP Transaction", open_world=True)
+ANN_SCHEMA = _tool_annotations(title="Inspect Tool Schema")
+ANN_MANIFEST = _tool_annotations(title="Review MCP Manifest")
+ANN_BATCH = _tool_annotations(title="Batch Scan")
+ANN_SIMULATE = _tool_annotations(title="Simulate Policy Modes")
+ANN_CONFIG_READ = _tool_annotations(title="Read ShadowGate Configuration")
+ANN_AUDIT_READ = _tool_annotations(title="Read ShadowGate Audit Summary")
+ANN_REPORT = _tool_annotations(title="Create Security Report")
+ANN_REGISTRY_READ = _tool_annotations(title="Read MCP Server Registry")
+ANN_ADMIN_WRITE = _tool_annotations(
+    title="Admin Configuration Update",
+    read_only=False,
+    destructive=False,
+    idempotent=False,
+    open_world=False,
+)
+ANN_APPROVAL = _tool_annotations(
+    title="Approve MCP Manifest Identity",
+    read_only=False,
+    destructive=False,
+    idempotent=False,
+    open_world=True,
+)
+
+@mcp.tool(annotations=ANN_HEALTH)
 def health_check() -> dict[str, Any]:
     """Return ShadowGate MCP health, version, and active policy."""
     return {
@@ -670,7 +729,7 @@ def health_check() -> dict[str, Any]:
 
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_SCAN)
 def scan_text(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan arbitrary text for leaked secrets, prompt injection, risky commands, and sensitive file paths."""
     auth = require_client_key(client_key)
@@ -685,7 +744,7 @@ def scan_text(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_SCAN)
 def analyze_text(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """
     Professional public text-analysis tool.
@@ -726,7 +785,7 @@ def analyze_text(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, 
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_REDACT)
 def redact_secrets(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return the text with detected secrets and sensitive path snippets redacted."""
     auth = require_client_key(client_key)
@@ -740,7 +799,7 @@ def redact_secrets(text: TextParam, client_key: ClientKeyParam = "") -> dict[str
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_RISK)
 def get_risk_score(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return a 0-100 risk score for a text payload."""
     auth = require_client_key(client_key)
@@ -754,7 +813,7 @@ def get_risk_score(text: TextParam, client_key: ClientKeyParam = "") -> dict[str
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_POLICY)
 def decide_policy(text: TextParam, strict: bool = True, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Return the policy decision for a payload: allow, redact, or block."""
     auth = require_client_key(client_key)
@@ -768,7 +827,7 @@ def decide_policy(text: TextParam, strict: bool = True, client_key: ClientKeyPar
     result["auth"] = auth
     return result
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_RESPONSE)
 def inspect_mcp_response(server_name: ServerNameParam, tool_name: ToolNameParam, response_text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan a response returned by another MCP server before the agent trusts it."""
     auth = require_client_key(client_key)
@@ -784,7 +843,7 @@ def inspect_mcp_response(server_name: ServerNameParam, tool_name: ToolNameParam,
     result["auth"] = auth
     return result
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_TOOL_CALL)
 def inspect_mcp_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam, arguments_json: ArgumentsJsonParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan an outgoing MCP tool call before execution."""
     auth = require_client_key(client_key)
@@ -800,7 +859,7 @@ def inspect_mcp_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam
     result["auth"] = auth
     return result
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_GATE_CALL)
 def gate_mcp_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam, arguments_json: ArgumentsJsonParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Gateway decision for an outgoing MCP tool call."""
     auth = require_client_key(client_key)
@@ -823,7 +882,7 @@ def gate_mcp_tool_call(server_name: ServerNameParam, tool_name: ToolNameParam, a
     return gateway
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_GATE_RESPONSE)
 def gate_mcp_response(server_name: ServerNameParam, tool_name: ToolNameParam, response_text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Gateway decision for an MCP response."""
     auth = require_client_key(client_key)
@@ -846,7 +905,7 @@ def gate_mcp_response(server_name: ServerNameParam, tool_name: ToolNameParam, re
     return gateway
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_TRANSACTION)
 def evaluate_mcp_transaction(
     server_name: ServerNameParam,
     tool_name: ToolNameParam,
@@ -900,7 +959,7 @@ def evaluate_mcp_transaction(
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_SCHEMA)
 def inspect_tool_schema(server_name: ServerNameParam, tool_name: ToolNameParam, schema_json: SchemaJsonParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Scan an MCP tool schema/description before allowing agents to use it."""
     auth = require_client_key(client_key)
@@ -949,7 +1008,7 @@ def inspect_tool_schema(server_name: ServerNameParam, tool_name: ToolNameParam, 
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_MANIFEST)
 def review_mcp_manifest(
     server_name: ServerNameParam,
     manifest_json: ManifestJsonParam,
@@ -1105,7 +1164,7 @@ def review_mcp_manifest(
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_BATCH)
 def scan_batch(items: list[str], client_key: ClientKeyParam = "") -> dict[str, Any]:
     """
     Scan multiple text items in one call.
@@ -1152,7 +1211,7 @@ def scan_batch(items: list[str], client_key: ClientKeyParam = "") -> dict[str, A
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_SIMULATE)
 def simulate_policy_modes(text: TextParam, client_key: ClientKeyParam = "") -> dict[str, Any]:
     """Show how the same text would be handled under monitor, balanced, and strict modes."""
     auth = require_client_key(client_key)
@@ -1176,13 +1235,13 @@ def simulate_policy_modes(text: TextParam, client_key: ClientKeyParam = "") -> d
         },
     }
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_CONFIG_READ)
 def get_policy() -> dict[str, Any]:
     """Return the active ShadowGate policy configuration."""
     return load_policy()
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_ADMIN_WRITE)
 def set_policy_mode(mode: PolicyModeParam, admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Change ShadowGate policy mode: monitor, balanced, or strict."""
     auth = require_admin_key(admin_key)
@@ -1193,7 +1252,7 @@ def set_policy_mode(mode: PolicyModeParam, admin_key: AdminKeyParam = "") -> dic
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_AUDIT_READ)
 def get_recent_audit_events(limit: LimitParam = 20, admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Return recent ShadowGate audit events. Raw scanned text is never stored."""
     auth = require_admin_key(admin_key)
@@ -1202,7 +1261,7 @@ def get_recent_audit_events(limit: LimitParam = 20, admin_key: AdminKeyParam = "
     return {"auth": auth, "events": read_audit_events(limit=limit)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_AUDIT_READ)
 def get_audit_summary(admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Return a summary of ShadowGate audit decisions, actions, categories, and severities."""
     auth = require_admin_key(admin_key)
@@ -1503,7 +1562,7 @@ def _security_report_markdown(report_sections: dict[str, Any]) -> str:
     return "\n".join(markdown)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_REPORT)
 def create_security_report(limit: LimitParam = 50, admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Create a compact security report from recent audit events."""
     auth = require_admin_key(admin_key)
@@ -1541,7 +1600,7 @@ def create_security_report(limit: LimitParam = 50, admin_key: AdminKeyParam = ""
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_REGISTRY_READ)
 def get_server_registry(admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """Return the ShadowGate MCP server trust registry."""
     auth = require_admin_key(admin_key)
@@ -1552,13 +1611,13 @@ def get_server_registry(admin_key: AdminKeyParam = "") -> dict[str, Any]:
     return registry
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_REGISTRY_READ)
 def get_mcp_server_trust(server_name: ServerNameParam) -> dict[str, Any]:
     """Return trust status for a specific MCP server."""
     return get_server_trust(server_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_ADMIN_WRITE)
 def set_mcp_server_trust(server_name: ServerNameParam, trust_level: str, reason: ReasonParam = "", admin_key: AdminKeyParam = "") -> dict[str, Any]:
     """
     Set trust level for an MCP server.
@@ -1577,7 +1636,7 @@ def set_mcp_server_trust(server_name: ServerNameParam, trust_level: str, reason:
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_APPROVAL)
 def approve_mcp_manifest_identity(
     server_name: ServerNameParam,
     manifest_json: ManifestJsonParam,
@@ -1664,13 +1723,13 @@ def approve_mcp_manifest_identity(
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_CONFIG_READ)
 def get_data_paths() -> dict[str, Any]:
     """Return ShadowGate data directory paths for policy, registry, and audit logs."""
     return _get_data_paths()
 
 
-@mcp.tool()
+@mcp.tool(annotations=ANN_CONFIG_READ)
 def get_security_config() -> dict[str, Any]:
     """Return ShadowGate admin-auth security configuration without exposing the raw key."""
     return _get_security_config()
