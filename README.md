@@ -2,6 +2,8 @@
 
 [![Smithery](https://smithery.ai/badge/josephibrahim/shadowgate-mcp)](https://smithery.ai/servers/josephibrahim/shadowgate-mcp)
 
+
+Smithery listing: https://smithery.ai/servers/josephibrahim/shadowgate-mcp
 ShadowGate MCP is a defensive gateway and firewall for AI agents that use MCP servers.
 
 Current version: 0.4.0-hardened
