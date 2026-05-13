@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, timezone
 from typing import Any
@@ -28,11 +29,12 @@ def load_registry() -> dict[str, Any]:
 
     if not registry_file.exists():
         save_registry(DEFAULT_REGISTRY)
-        return DEFAULT_REGISTRY.copy()
+        return copy.deepcopy(DEFAULT_REGISTRY)
 
     try:
         loaded = json.loads(registry_file.read_text(encoding="utf-8"))
-        registry = {**DEFAULT_REGISTRY, **loaded}
+        registry = copy.deepcopy(DEFAULT_REGISTRY)
+        registry.update(loaded)
 
         if registry.get("default_trust") not in ALLOWED_TRUST_LEVELS:
             registry["default_trust"] = "untrusted"
@@ -42,14 +44,15 @@ def load_registry() -> dict[str, Any]:
 
         return registry
     except Exception:
-        return DEFAULT_REGISTRY.copy()
+        return copy.deepcopy(DEFAULT_REGISTRY)
 
 
 def save_registry(registry: dict[str, Any]) -> dict[str, Any]:
     registry_file = _registry_file()
     registry_file.parent.mkdir(parents=True, exist_ok=True)
 
-    clean = {**DEFAULT_REGISTRY, **registry}
+    clean = copy.deepcopy(DEFAULT_REGISTRY)
+    clean.update(copy.deepcopy(registry))
 
     if clean.get("default_trust") not in ALLOWED_TRUST_LEVELS:
         clean["default_trust"] = "untrusted"

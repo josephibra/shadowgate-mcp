@@ -1188,6 +1188,295 @@ def get_audit_summary(admin_key: str = "") -> dict[str, Any]:
     return summary
 
 
+def _compact_block_event(event: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "timestamp": event.get("timestamp"),
+        "action": event.get("action"),
+        "score": event.get("risk_score"),
+        "level": event.get("risk_level"),
+        "categories": event.get("categories", []),
+        "event_id": event.get("event_id"),
+    }
+
+
+def _compact_warning_event(event: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "timestamp": event.get("timestamp"),
+        "action": event.get("action"),
+        "score": event.get("risk_score"),
+        "level": event.get("risk_level"),
+        "approval_reason": event.get("gateway", {}).get("approval_reason"),
+        "event_id": event.get("event_id"),
+    }
+
+
+def _risk_overview(summary: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
+    highest_score = max(
+        (_int_value(event.get("risk_score"), 0) for event in events),
+        default=0,
+    )
+    highest_level = _risk_level(highest_score)
+
+    return {
+        "total_events": summary.get("total_events", 0),
+        "by_decision": summary.get("by_decision", {}),
+        "top_categories": summary.get("top_categories", {}),
+        "top_severities": summary.get("top_severities", {}),
+        "highest_recent_risk_score": highest_score,
+        "highest_recent_risk_level": highest_level,
+    }
+
+
+def _server_trust_overview(registry: dict[str, Any]) -> dict[str, Any]:
+    servers = registry.get("servers", {})
+    if not isinstance(servers, dict):
+        servers = {}
+
+    counts = {level: 0 for level in sorted(ALLOWED_TRUST_LEVELS)}
+    server_names_by_level = {level: [] for level in sorted(ALLOWED_TRUST_LEVELS)}
+    default_trust = registry.get("default_trust", "untrusted")
+
+    for server_name, entry in servers.items():
+        if not isinstance(entry, dict):
+            continue
+        trust_level = str(entry.get("trust_level", default_trust)).lower().strip()
+        if trust_level not in ALLOWED_TRUST_LEVELS:
+            trust_level = "untrusted"
+        counts[trust_level] += 1
+        server_names_by_level[trust_level].append(str(server_name))
+
+    return {
+        "default_trust": default_trust,
+        "counts": counts,
+        "blocked_servers": sorted(server_names_by_level["blocked"]),
+        "monitored_servers": sorted(server_names_by_level["monitor"]),
+        "trusted_servers": sorted(server_names_by_level["trusted"]),
+    }
+
+
+def _manifest_identity_overview(registry: dict[str, Any]) -> dict[str, Any]:
+    servers = registry.get("servers", {})
+    if not isinstance(servers, dict):
+        servers = {}
+
+    entries: list[dict[str, Any]] = []
+
+    for server_name, entry in servers.items():
+        if not isinstance(entry, dict):
+            continue
+
+        identity = entry.get("trust_identity")
+        if not isinstance(identity, dict):
+            continue
+
+        entries.append(
+            {
+                "server_name": str(server_name),
+                "trust_level": entry.get("trust_level", "untrusted"),
+                "manifest_sha256": identity.get("manifest_sha256"),
+                "tool_count": identity.get("tool_count", 0),
+                "highest_capability_risk_score": identity.get(
+                    "highest_capability_risk_score",
+                    0,
+                ),
+                "capability_ids": identity.get("capability_ids", []),
+            }
+        )
+
+    entries.sort(key=lambda item: item["server_name"])
+
+    return {
+        "servers_with_trust_identity": len(entries),
+        "servers": entries,
+    }
+
+
+def _capability_risk_overview(
+    manifest_identity_overview: dict[str, Any],
+) -> dict[str, Any]:
+    capability_counts: dict[str, int] = {}
+    highest_score = 0
+    high_risk_servers: list[dict[str, Any]] = []
+
+    for entry in manifest_identity_overview.get("servers", []):
+        score = _int_value(entry.get("highest_capability_risk_score"), 0)
+        highest_score = max(highest_score, score)
+
+        for capability_id in _list_value(entry.get("capability_ids", [])):
+            capability_counts[capability_id] = capability_counts.get(capability_id, 0) + 1
+
+        if score >= 70:
+            high_risk_servers.append(
+                {
+                    "server_name": entry.get("server_name"),
+                    "trust_level": entry.get("trust_level"),
+                    "highest_capability_risk_score": score,
+                    "capability_ids": entry.get("capability_ids", []),
+                }
+            )
+
+    high_risk_servers.sort(key=lambda item: str(item.get("server_name", "")))
+
+    return {
+        "capability_ids": dict(sorted(capability_counts.items())),
+        "highest_capability_risk_score": highest_score,
+        "servers_with_high_capability_risk": high_risk_servers,
+    }
+
+
+def _security_report_recommendations(
+    *,
+    risk_overview: dict[str, Any],
+    server_trust_overview: dict[str, Any],
+    manifest_identity_overview: dict[str, Any],
+    capability_risk_overview: dict[str, Any],
+    recent_block_count: int,
+) -> list[str]:
+    recommendations: list[str] = []
+
+    if server_trust_overview.get("blocked_servers"):
+        recommendations.append("Review blocked server list.")
+
+    if manifest_identity_overview.get("servers_with_trust_identity", 0) == 0:
+        recommendations.append("Approve baseline identities for trusted MCP servers.")
+
+    if capability_risk_overview.get("servers_with_high_capability_risk"):
+        recommendations.append("Require human approval policy for high-capability tools.")
+
+    total_blocks = _int_value(risk_overview.get("by_decision", {}).get("block"), 0)
+    if recent_block_count >= 5 or total_blocks >= 5:
+        recommendations.append("Investigate recent blocked events.")
+
+    security = _get_security_config()
+    if not security.get("admin_auth_enabled") or not security.get("client_auth_enabled"):
+        recommendations.append(
+            "Set SHADOWGATE_ADMIN_KEY and SHADOWGATE_CLIENT_KEY for hosted use."
+        )
+
+    if not recommendations:
+        recommendations.append("No immediate security-report actions.")
+
+    return recommendations
+
+
+def _security_report_sections(
+    *,
+    summary: dict[str, Any],
+    events: list[dict[str, Any]],
+    registry: dict[str, Any],
+    recent_blocks: list[dict[str, Any]],
+    recent_warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    risk_overview = _risk_overview(summary, events)
+    server_trust_overview = _server_trust_overview(registry)
+    manifest_identity_overview = _manifest_identity_overview(registry)
+    capability_risk_overview = _capability_risk_overview(manifest_identity_overview)
+
+    compact_blocks = [_compact_block_event(event) for event in recent_blocks]
+    compact_warnings = [_compact_warning_event(event) for event in recent_warnings]
+
+    return {
+        "risk_overview": risk_overview,
+        "recent_blocks": compact_blocks,
+        "recent_human_review_warnings": compact_warnings,
+        "server_trust_overview": server_trust_overview,
+        "manifest_identity_overview": manifest_identity_overview,
+        "capability_risk_overview": capability_risk_overview,
+        "recommendations": _security_report_recommendations(
+            risk_overview=risk_overview,
+            server_trust_overview=server_trust_overview,
+            manifest_identity_overview=manifest_identity_overview,
+            capability_risk_overview=capability_risk_overview,
+            recent_block_count=len(recent_blocks),
+        ),
+    }
+
+
+def _security_report_markdown(report_sections: dict[str, Any]) -> str:
+    risk = report_sections["risk_overview"]
+    trust = report_sections["server_trust_overview"]
+    identities = report_sections["manifest_identity_overview"]
+    capability = report_sections["capability_risk_overview"]
+
+    markdown = [
+        "# ShadowGate MCP Security Report",
+        "",
+        f"Version: {VERSION}",
+        "",
+        "## Risk overview",
+        f"- Total audit events: {risk.get('total_events', 0)}",
+        f"- By decision: {risk.get('by_decision', {})}",
+        f"- Top categories: {risk.get('top_categories', {})}",
+        f"- Top severities: {risk.get('top_severities', {})}",
+        f"- Highest recent risk: {risk.get('highest_recent_risk_score')} "
+        f"({risk.get('highest_recent_risk_level')})",
+        "",
+        "## Server trust overview",
+        f"- Default trust: {trust.get('default_trust')}",
+        f"- Counts: {trust.get('counts', {})}",
+        f"- Blocked servers: {trust.get('blocked_servers', [])}",
+        f"- Monitored servers: {trust.get('monitored_servers', [])}",
+        f"- Trusted servers: {trust.get('trusted_servers', [])}",
+        "",
+        "## Manifest identity overview",
+        f"- Servers with trust identity: {identities.get('servers_with_trust_identity', 0)}",
+    ]
+
+    for entry in identities.get("servers", []):
+        markdown.append(
+            f"- {entry.get('server_name')} | trust={entry.get('trust_level')} | "
+            f"tools={entry.get('tool_count')} | "
+            f"capability_score={entry.get('highest_capability_risk_score')} | "
+            f"capabilities={entry.get('capability_ids', [])}"
+        )
+
+    markdown.extend(
+        [
+            "",
+            "## Capability risk overview",
+            f"- Capability IDs: {capability.get('capability_ids', {})}",
+            f"- Highest capability risk score: "
+            f"{capability.get('highest_capability_risk_score', 0)}",
+            f"- High-risk servers: "
+            f"{capability.get('servers_with_high_capability_risk', [])}",
+            "",
+            "## Recent blocked events",
+        ]
+    )
+
+    recent_blocks = report_sections["recent_blocks"]
+    if not recent_blocks:
+        markdown.append("- No recent blocked events.")
+    else:
+        for event in recent_blocks:
+            markdown.append(
+                f"- {event.get('timestamp')} | action={event.get('action')} | "
+                f"score={event.get('score')} | level={event.get('level')} | "
+                f"categories={event.get('categories')} | event_id={event.get('event_id')}"
+            )
+
+    markdown.extend(["", "## Recent human-review warnings"])
+
+    recent_warnings = report_sections["recent_human_review_warnings"]
+    if not recent_warnings:
+        markdown.append("- No recent human-review warnings.")
+    else:
+        for event in recent_warnings:
+            markdown.append(
+                f"- {event.get('timestamp')} | action={event.get('action')} | "
+                f"score={event.get('score')} | level={event.get('level')} | "
+                f"reason={event.get('approval_reason')} | "
+                f"event_id={event.get('event_id')}"
+            )
+
+    markdown.extend(["", "## Recommendations"])
+
+    for recommendation in report_sections["recommendations"]:
+        markdown.append(f"- {recommendation}")
+
+    return "\n".join(markdown)
+
+
 @mcp.tool()
 def create_security_report(limit: int = 50, admin_key: str = "") -> dict[str, Any]:
     """Create a compact security report from recent audit events."""
@@ -1207,48 +1496,22 @@ def create_security_report(limit: int = 50, admin_key: str = "") -> dict[str, An
         if event.get("gateway", {}).get("requires_human_approval")
     ][-10:]
 
-    markdown = [
-        "# ShadowGate MCP Security Report",
-        "",
-        f"Version: {VERSION}",
-        f"Total audit events: {summary.get('total_events', 0)}",
-        f"By decision: {summary.get('by_decision', {})}",
-        f"Top categories: {summary.get('top_categories', {})}",
-        f"Top severities: {summary.get('top_severities', {})}",
-        "",
-        "## Recent blocked events",
-    ]
-
-    if not recent_blocks:
-        markdown.append("- No recent blocked events.")
-    else:
-        for event in recent_blocks:
-            markdown.append(
-                f"- {event.get('timestamp')} | action={event.get('action')} | "
-                f"score={event.get('risk_score')} | level={event.get('risk_level')} | "
-                f"categories={event.get('categories')} | event_id={event.get('event_id')}"
-            )
-
-    markdown.extend(["", "## Recent human-review warnings"])
-
-    if not recent_warnings:
-        markdown.append("- No recent human-review warnings.")
-    else:
-        for event in recent_warnings:
-            markdown.append(
-                f"- {event.get('timestamp')} | action={event.get('action')} | "
-                f"score={event.get('risk_score')} | level={event.get('risk_level')} | "
-                f"reason={event.get('gateway', {}).get('approval_reason')} | "
-                f"event_id={event.get('event_id')}"
-            )
+    report_sections = _security_report_sections(
+        summary=summary,
+        events=events,
+        registry=get_registry(),
+        recent_blocks=recent_blocks,
+        recent_warnings=recent_warnings,
+    )
 
     return {
         "version": VERSION,
         "summary": summary,
         "recent_block_count": len(recent_blocks),
         "recent_warning_count": len(recent_warnings),
-        "markdown": "\n".join(markdown),
+        "markdown": _security_report_markdown(report_sections),
         "auth": auth,
+        "report_sections": report_sections,
     }
 
 
