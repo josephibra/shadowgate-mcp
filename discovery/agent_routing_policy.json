@@ -1,6 +1,6 @@
 {
   "name": "ShadowGate Agent Routing Policy",
-  "version": "0.3.7-host-port",
+  "version": "0.4.0-hardened",
   "purpose": "Tell AI agents and MCP hosts when to call ShadowGate before trusting other MCP servers.",
   "default_behavior": {
     "unknown_mcp_server": "call gate_mcp_tool_call before execution and gate_mcp_response before trusting output",

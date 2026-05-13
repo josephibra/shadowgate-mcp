@@ -17,7 +17,7 @@ risky MCP tool calls, MCP responses, MCP schemas, MCP manifests, prompt injectio
 
 ## Current version
 
-0.3.8-public-surface
+0.4.0-hardened
 
 ## Core problem
 
@@ -277,12 +277,12 @@ Evaluate architecture, public MCP tool surface, security model, deployment readi
 
 If you need code, ask for specific files by path.
 
-Preserve the 0.3.8 public API unless you explain a migration plan.
+Preserve the 0.4.0 public API unless you explain a migration plan.
 
 ## Current status
 
 Current release:
 
-    0.3.8-public-surface
+    0.4.0-hardened
 
-Local repo is committed and clean after the 0.3.8 public surface release.
+Local repo is committed through Phase 7 production hardening. Phase 8 prepares the 0.4.0-hardened release.

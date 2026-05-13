@@ -1,7 +1,7 @@
 {
   "name": "ShadowGate MCP",
   "slug": "shadowgate-mcp",
-  "version": "0.3.8-public-surface",
+  "version": "0.4.0-hardened",
   "description": "Defensive MCP security gateway for scanning MCP tool calls, responses, schemas, manifests, prompt injection, leaked secrets, risky commands, and untrusted MCP servers.",
   "category": "security",
   "transport": {

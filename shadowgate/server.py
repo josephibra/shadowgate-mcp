@@ -16,7 +16,7 @@ from .registry import ALLOWED_TRUST_LEVELS, get_registry, get_server_trust, load
 from .scanner import policy_decision, redact, risk_score, scan, scan_mcp_response
 from .storage import get_data_paths as _get_data_paths
 
-VERSION = "0.3.8-public-surface"
+VERSION = "0.4.0-hardened"
 TRUST_IDENTITY_VERSION = "1"
 
 SERVER_HOST = os.environ.get("SHADOWGATE_HOST", os.environ.get("HOST", "127.0.0.1"))

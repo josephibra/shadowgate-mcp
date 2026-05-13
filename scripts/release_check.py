@@ -19,6 +19,7 @@ REQUIRED_FILES = [
     "scripts/production_check.py",
     "scripts/validate_discovery.py",
     "scripts/public_api_check.py",
+    "scripts/package_check.py",
     "discovery/shadowgate_manifest.json",
     "discovery/client_connection_examples.json",
     "discovery/agent_routing_policy.json",
@@ -27,6 +28,7 @@ REQUIRED_FILES = [
     "docs/AGENT_USAGE.md",
     "docs/SECURITY_MODEL.md",
     "docs/TOOL_SURFACE.md",
+    "RELEASE_NOTES.md",
 ]
 
 
@@ -58,6 +60,7 @@ def main() -> None:
     run(["python", "scripts/production_check.py"])
     run(["python", "scripts/validate_discovery.py"])
     run(["python", "scripts/public_api_check.py"])
+    run(["python", "scripts/package_check.py"])
 
     print("RELEASE CHECK PASSED")
 

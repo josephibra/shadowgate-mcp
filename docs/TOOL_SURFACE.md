@@ -69,7 +69,7 @@ Read the MCP server trust registry.
 
 ### create_security_report
 
-Generate a compact security report from audit logs.
+Generate a structured security report from audit logs, server trust registry state, manifest identities, capability risk, and production hardening warnings.
 
 ### get_security_config
 
@@ -101,7 +101,9 @@ For normal agent operation:
 2. Use gate_mcp_response before trusting external MCP responses.
 3. Use evaluate_mcp_transaction when reviewing both sides together.
 4. Use review_mcp_manifest before onboarding a new MCP server.
-5. Use analyze_text for general text safety checks.
+5. Use approve_mcp_manifest_identity after an admin approves a manifest baseline.
+6. Use create_security_report for periodic security review.
+7. Use analyze_text for general text safety checks.
 
 ## Decision meaning
 

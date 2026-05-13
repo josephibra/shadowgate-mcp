@@ -2,6 +2,8 @@
 
 Name: ShadowGate MCP
 
+Version: 0.4.0-hardened
+
 Category: Security / MCP Gateway / Agent Firewall
 
 Transport: Streamable HTTP
@@ -13,6 +15,7 @@ https://YOUR_DOMAIN_OR_RAILWAY_URL/mcp
 Description:
 
 ShadowGate MCP is a defensive security gateway for AI agents. It scans MCP tool calls, MCP responses, MCP tool schemas, and MCP server manifests before agents trust or execute them. It detects prompt injection, leaked secret paths, risky command execution, suspicious filesystem access, and unknown or blocked MCP servers.
+It also supports manifest trust identity approval, drift detection, client payload examples, and production hardening warnings.
 
 Core tools:
 

@@ -7,8 +7,10 @@
 - python scripts/production_check.py
 - python scripts/validate_discovery.py
 - python scripts/public_api_check.py
+- python scripts/package_check.py
 - python scripts/release_check.py
 - python examples/agent_to_agent_demo.py
+- docker build -t shadowgate-mcp .
 - Dockerfile exists
 - Procfile exists
 - .env.example exists
@@ -33,6 +35,7 @@
 ## Deployment checks
 
 - Railway env variables prepared
+- Railway env vars include SHADOWGATE_HOST=0.0.0.0, SHADOWGATE_DATA_DIR=/data, SHADOWGATE_ADMIN_KEY, SHADOWGATE_CLIENT_KEY, audit retention, and rate-limit hooks
 - MCP endpoint is /mcp
 - data dir is /data
 - persistent volume configured if platform supports it
@@ -43,7 +46,7 @@
 
 ## Current release
 
-0.3.8-public-surface
+0.4.0-hardened
 
 
 ## Public surface checks
