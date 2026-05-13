@@ -15,8 +15,15 @@ version: "0.4.0-hardened"
 category: security
 license: MIT
 
-# TODO: Set to your actual GitHub repository URL before publishing.
-repository: https://github.com/YOUR_USERNAME/shadowgate-mcp
+repository: https://github.com/josephibra/shadowgate-mcp
+
+# Live hosted demo endpoint (Railway).
+# Smithery users connecting to the hosted instance use this URL directly.
+# Smithery users deploying their own instance via the build config above will
+# get their own endpoint from the Dockerfile/startCommand config below.
+# TODO: If Smithery supports a top-level hostedEndpoint field, add it here
+#       after verifying the schema at https://smithery.ai/docs.
+hostedEndpoint: https://web-production-62b0d.up.railway.app/mcp
 
 build:
   dockerfile: Dockerfile

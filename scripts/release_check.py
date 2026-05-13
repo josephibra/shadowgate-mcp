@@ -28,6 +28,8 @@ REQUIRED_FILES = [
     "discovery/client_connection_examples.json",
     "discovery/agent_routing_policy.json",
     "docs/HOSTED_DEMO.md",
+    "docs/PUBLISHING.md",
+    "discovery/mcp_registry_submission.md",
     "docs/CONNECT.md",
     "docs/CLIENT_CONFIGS.md",
     "docs/AGENT_USAGE.md",

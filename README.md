@@ -208,9 +208,19 @@ python scripts/release_check.py
 python examples/agent_to_agent_demo.py
 ```
 
+## Publishing and Discovery
+
+- `docs/PUBLISHING.md` — Smithery and MCP Registry publishing checklists
+- `discovery/mcp_registry_submission.md` — draft MCP Registry submission
+- `smithery.yaml` — Smithery registry configuration
+- `docs/PAYMENT_XPAY.md` — future XPay/x402 payment proxy integration
+
+GitHub: https://github.com/josephibra/shadowgate-mcp
+
 ## Docs
 
 - docs/HOSTED_DEMO.md
+- docs/PUBLISHING.md
 - docs/CONNECT.md
 - docs/CLIENT_CONFIGS.md
 - docs/AGENT_USAGE.md
