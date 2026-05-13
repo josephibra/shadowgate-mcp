@@ -7,6 +7,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .audit import read_audit_events, summarize_audit_log, write_audit_event
+from .capabilities import assess_mcp_tool_capabilities
 from .auth import get_security_config as _get_security_config, require_admin_key, require_client_key
 from .policy import apply_policy, load_policy, simulate_policy_modes as simulate_modes, update_policy_mode
 from .registry import get_registry, get_server_trust, set_server_trust
@@ -111,6 +112,41 @@ def _add_manual_finding(
     return result
 
 
+def _apply_capability_assessment(
+    result: dict[str, Any],
+    *,
+    tool_name: str,
+    payload: str,
+    add_findings: bool = True,
+) -> dict[str, Any]:
+    assessment = assess_mcp_tool_capabilities(tool_name=tool_name, payload=payload)
+    result["capability_assessment"] = assessment
+
+    # Important:
+    # For live tool calls, capability alone should not automatically block.
+    # Example: run_command {"command":"echo hello"} should be allow_with_warning,
+    # not block. The actual payload scanner still blocks dangerous arguments.
+    #
+    # For schemas/manifests, add_findings=True so dangerous capabilities affect
+    # onboarding decisions strongly.
+    if not add_findings:
+        return result
+
+    for capability in assessment.get("capabilities", []):
+        result = _add_manual_finding(
+            result,
+            rule_id=f"capability_{capability.get('id', 'unknown')}",
+            label=str(capability.get("label", "Risky MCP tool capability")),
+            severity=str(capability.get("severity", "medium")),
+            category=str(capability.get("category", "tool_capability")),
+            weight=int(capability.get("weight", 40)),
+            preview=str(capability.get("evidence", tool_name)),
+        )
+
+    return result
+
+
+
 def _audit(action: str, result: dict[str, Any]) -> dict[str, Any]:
     event = {
         "action": action,
@@ -211,6 +247,13 @@ def _scan_tool_call(server_name: str, tool_name: str, arguments_json: str) -> di
             weight=45,
             preview=tool_name,
         )
+
+    result = _apply_capability_assessment(
+        result,
+        tool_name=tool_name,
+        payload=arguments_json,
+        add_findings=False,
+    )
 
     return result
 
@@ -641,6 +684,12 @@ def inspect_tool_schema(server_name: str, tool_name: str, schema_json: str, clie
         "kind": "mcp_tool_schema",
     }
 
+    result = _apply_capability_assessment(
+        result,
+        tool_name=tool_name,
+        payload=schema_json,
+    )
+
     result = _apply_server_trust(result, server_name)
 
     if _looks_like_risky_tool_name(tool_name):
@@ -741,6 +790,7 @@ def review_mcp_manifest(server_name: str, manifest_json: str, client_key: str = 
                 "approval_reason": scan_result.get("gateway", {}).get("approval_reason"),
                 "categories": scan_result.get("categories", []),
                 "severities": scan_result.get("severities", []),
+                "capability_assessment": scan_result.get("capability_assessment", {}),
                 "policy": scan_result.get("policy", {}),
                 "server_trust": scan_result.get("server_trust", {}),
                 "audit_id": scan_result.get("audit", {}).get("event_id"),
