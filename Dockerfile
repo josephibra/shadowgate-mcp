@@ -13,7 +13,6 @@ COPY tests ./tests
 COPY scripts ./scripts
 COPY discovery ./discovery
 COPY docs ./docs
-COPY .env.example ./.env.example
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -e .
