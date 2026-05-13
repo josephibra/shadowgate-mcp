@@ -36,6 +36,8 @@ REQUIRED_FILES = [
     "docs/SECURITY_MODEL.md",
     "docs/TOOL_SURFACE.md",
     "docs/PAYMENT_XPAY.md",
+    "docs/PRICING_MODEL.md",
+    "docs/PASSIVE_PLATFORMS.md",
     "RELEASE_NOTES.md",
 ]
 

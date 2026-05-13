@@ -217,10 +217,21 @@ python examples/agent_to_agent_demo.py
 
 GitHub: https://github.com/josephibra/shadowgate-mcp
 
+## Passive Discovery and Monetization
+
+- `docs/PUBLISHING.md` — Smithery and MCP Registry submission checklists
+- `discovery/mcp_registry_submission.md` — draft MCP Registry PR submission
+- `docs/PAYMENT_XPAY.md` — XPay/x402 payment proxy integration plan
+- `docs/PRICING_MODEL.md` — suggested per-call pricing for hosted tools
+- `docs/PASSIVE_PLATFORMS.md` — platform listing strategy (GitHub, Smithery, MCP Registry, XPay, and more)
+
 ## Docs
 
 - docs/HOSTED_DEMO.md
 - docs/PUBLISHING.md
+- docs/PAYMENT_XPAY.md
+- docs/PRICING_MODEL.md
+- docs/PASSIVE_PLATFORMS.md
 - docs/CONNECT.md
 - docs/CLIENT_CONFIGS.md
 - docs/AGENT_USAGE.md
